@@ -1,0 +1,15 @@
+id	titulo	sprint	pontos	data_criacao	data_inicio	data_revisao	data_conclusao
+1	Importar arquivo TSV/CSV	1	5	2026-11-10			
+2	Ver Lead Time e Cycle Time	1	3	2026-11-10			
+3	Ver erros claros de datas inválidas	1	3	2026-11-10			
+4	Ver Throughput por Sprint	2	3	2026-11-10			
+5	Ver WIP por dia contra os limites	2	5	2026-11-10			
+6	Ver o gargalo do fluxo	2	3	2026-11-10			
+7	Ver painel da Sprint e Velocity	2	5	2026-11-10			
+8	Página inicial explicativa	2	2	2026-11-10			
+9	Ver Burndown da Sprint	3	5	2026-11-10			
+10	Ver CFD do projeto	3	5	2026-11-10			
+11	Definir metas e comparar com a média	3	3	2026-11-10			
+12	Salvar e reabrir análises	3	5	2026-11-10			
+13	(Hipótese) Importar direto do Trello	3		2026-11-10			
+14	(Hipótese) Gerar rascunho de backlog com Gemini	3		2026-11-10			

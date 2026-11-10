@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collaboration_1">
+    <bpmn:participant id="Participant_1" name="Análise de uma Sprint com o Shelper" processRef="Process_1" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_1" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_SM" name="Scrum Master">
+        <bpmn:flowNodeRef>Start_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Montar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Enviar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Corrigir</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Analisar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_1</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Sys" name="Sistema (Shelper)">
+        <bpmn:flowNodeRef>Task_Validar</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Valido</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Erros</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Calcular</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Dashboard</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_1" name="Sprint precisa ser analisada">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="Task_Montar" name="Montar o arquivo TSV/CSV dos cartões">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_Enviar" name="Enviar o arquivo ao sistema">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:incoming>Flow_Corrigido</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_Validar" name="Validar o arquivo (colunas, datas, ordem)">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="Gateway_Valido" name="Arquivo válido?">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_Sim</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Nao</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="Task_Erros" name="Mostrar os erros por linha">
+      <bpmn:incoming>Flow_Nao</bpmn:incoming>
+      <bpmn:outgoing>Flow_Erro</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_Corrigir" name="Corrigir o arquivo">
+      <bpmn:incoming>Flow_Erro</bpmn:incoming>
+      <bpmn:outgoing>Flow_Corrigido</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_Calcular" name="Calcular as métricas do fluxo e da Sprint">
+      <bpmn:incoming>Flow_Sim</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_Dashboard" name="Montar o dashboard com gráficos, metas e gargalo">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_Analisar" name="Analisar gargalos e metas">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="End_1" name="Ação de melhoria definida">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_1" targetRef="Task_Montar" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Montar" targetRef="Task_Enviar" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_Enviar" targetRef="Task_Validar" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_Validar" targetRef="Gateway_Valido" />
+    <bpmn:sequenceFlow id="Flow_Sim" name="Sim" sourceRef="Gateway_Valido" targetRef="Task_Calcular" />
+    <bpmn:sequenceFlow id="Flow_Nao" name="Não" sourceRef="Gateway_Valido" targetRef="Task_Erros" />
+    <bpmn:sequenceFlow id="Flow_Erro" sourceRef="Task_Erros" targetRef="Task_Corrigir" />
+    <bpmn:sequenceFlow id="Flow_Corrigido" sourceRef="Task_Corrigir" targetRef="Task_Enviar" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_Calcular" targetRef="Task_Dashboard" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_Dashboard" targetRef="Task_Analisar" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Task_Analisar" targetRef="End_1" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+      <bpmndi:BPMNShape id="Participant_1_di" bpmnElement="Participant_1" isHorizontal="true">
+        <dc:Bounds x="160" y="80" width="1190" height="500" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_SM_di" bpmnElement="Lane_SM" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1160" height="220" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Sys_di" bpmnElement="Lane_Sys" isHorizontal="true">
+        <dc:Bounds x="190" y="300" width="1160" height="280" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Start_1_di" bpmnElement="Start_1">
+        <dc:Bounds x="240" y="172" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="215" y="215" width="86" height="40" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Montar_di" bpmnElement="Task_Montar">
+        <dc:Bounds x="330" y="150" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Enviar_di" bpmnElement="Task_Enviar">
+        <dc:Bounds x="490" y="150" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Corrigir_di" bpmnElement="Task_Corrigir">
+        <dc:Bounds x="900" y="150" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Analisar_di" bpmnElement="Task_Analisar">
+        <dc:Bounds x="1100" y="150" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_1_di" bpmnElement="End_1">
+        <dc:Bounds x="1282" y="172" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="1257" y="215" width="86" height="40" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Validar_di" bpmnElement="Task_Validar">
+        <dc:Bounds x="630" y="400" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Valido_di" bpmnElement="Gateway_Valido" isMarkerVisible="true">
+        <dc:Bounds x="800" y="415" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="781" y="378" width="88" height="27" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Erros_di" bpmnElement="Task_Erros">
+        <dc:Bounds x="900" y="490" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Calcular_di" bpmnElement="Task_Calcular">
+        <dc:Bounds x="900" y="400" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Dashboard_di" bpmnElement="Task_Dashboard">
+        <dc:Bounds x="1100" y="400" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="276" y="190" /><di:waypoint x="330" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="450" y="190" /><di:waypoint x="490" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+        <di:waypoint x="550" y="230" /><di:waypoint x="550" y="440" /><di:waypoint x="630" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
+        <di:waypoint x="750" y="440" /><di:waypoint x="800" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Sim_di" bpmnElement="Flow_Sim">
+        <di:waypoint x="850" y="440" /><di:waypoint x="900" y="440" />
+        <bpmndi:BPMNLabel><dc:Bounds x="866" y="420" width="20" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Nao_di" bpmnElement="Flow_Nao">
+        <di:waypoint x="825" y="465" /><di:waypoint x="825" y="530" /><di:waypoint x="900" y="530" />
+        <bpmndi:BPMNLabel><dc:Bounds x="831" y="487" width="20" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Erro_di" bpmnElement="Flow_Erro">
+        <di:waypoint x="1020" y="530" /><di:waypoint x="1060" y="530" /><di:waypoint x="1060" y="190" /><di:waypoint x="1020" y="190" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Corrigido_di" bpmnElement="Flow_Corrigido">
+        <di:waypoint x="960" y="150" /><di:waypoint x="960" y="110" /><di:waypoint x="550" y="110" /><di:waypoint x="550" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
+        <di:waypoint x="1020" y="440" /><di:waypoint x="1100" y="440" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6">
+        <di:waypoint x="1160" y="400" /><di:waypoint x="1160" y="230" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7">
+        <di:waypoint x="1220" y="190" /><di:waypoint x="1282" y="190" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
