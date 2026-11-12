@@ -1,0 +1,8 @@
+# Grava todos os arquivos de texto no repositório com fim de linha LF (padrão Linux/Mac),
+# mesmo quando o commit vem de um Windows. Evita diffs "fantasmas" entre integrantes.
+* text=auto eol=lf
+
+# Arquivos que não são texto: o Git não deve mexer neles.
+*.ico binary
+*.png binary
+*.jpg binary
