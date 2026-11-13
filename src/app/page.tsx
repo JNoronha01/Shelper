@@ -1,7 +1,8 @@
+import Link from "next/link";
+import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
 import { COLUNAS } from "@/lib/colunas";
 
-// Página inicial pública (rota "/").
-// No H1 ela ganhará o botão que leva ao cadastro.
+// Página inicial pública (rota "/"): explica o Shelper e leva ao cadastro.
 export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-10 px-4 py-16">
@@ -12,6 +13,18 @@ export default function Home() {
           colunas e acompanhe Lead Time, Cycle Time, Throughput, WIP, Velocity
           e Burndown calculados automaticamente — sem planilha.
         </p>
+        <p className="max-w-2xl text-zinc-600 dark:text-zinc-400">
+          Cada pessoa entra com a própria conta, e os projetos ficam visíveis só
+          para quem faz parte deles.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/cadastro" className={BOTAO_PRINCIPAL}>
+            Criar conta
+          </Link>
+          <Link href="/entrar" className={BOTAO_SECUNDARIO}>
+            Entrar
+          </Link>
+        </div>
       </header>
 
       <section aria-labelledby="titulo-colunas" className="flex flex-col gap-3">
@@ -29,8 +42,6 @@ export default function Home() {
           ))}
         </ol>
       </section>
-
-      <p className="text-sm text-zinc-500">Cadastro disponível em breve.</p>
     </main>
   );
 }
