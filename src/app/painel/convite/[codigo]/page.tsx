@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { criarClienteServidor } from "@/lib/supabase/server";
@@ -14,7 +15,20 @@ type Situacao =
   | { status: "expirado"; projeto: string }
   | { status: "valido" | "ja_membro"; projeto: string; projeto_id: string };
 
-export default async function PaginaConvite({ params }: PageProps<"/painel/convite/[codigo]">) {
+type Props = PageProps<"/painel/convite/[codigo]">;
+
+// Dados da sessão e do banco ficam dentro do Suspense (o resto da página é estático).
+export default function PaginaConvite({ params }: Props) {
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-16">
+      <Suspense fallback={<p className="text-center text-zinc-500">Abrindo o convite…</p>}>
+        <Conteudo params={params} />
+      </Suspense>
+    </main>
+  );
+}
+
+async function Conteudo({ params }: Pick<Props, "params">) {
   const { codigo } = await params;
   await exigirUsuario();
 
@@ -26,8 +40,7 @@ export default async function PaginaConvite({ params }: PageProps<"/painel/convi
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-16">
-      <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         {situacao.status === "valido" && (
           <>
             <h1 className="text-2xl font-bold tracking-tight">Convite para um projeto</h1>
@@ -60,7 +73,6 @@ export default async function PaginaConvite({ params }: PageProps<"/painel/convi
             </Link>
           </>
         )}
-      </div>
-    </main>
+    </div>
   );
 }
