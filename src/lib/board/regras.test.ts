@@ -87,3 +87,39 @@ describe("utilidades", () => {
     expect(formatarDataHora("2026-11-11T02:30:00Z")).toBe("10/11, 23:30");
   });
 });
+
+import { validarMetas, validarSprint } from "@/lib/board/regras";
+
+describe("validarSprint", () => {
+  it("aceita datas e Meta opcional", () => {
+    expect(validarSprint("2026-11-17", "2026-11-24", "Dashboard no ar")).toEqual({
+      ok: true,
+      dados: { inicio: "2026-11-17", fim: "2026-11-24", meta: "Dashboard no ar" },
+    });
+    expect(validarSprint("2026-11-17", "2026-11-17", "")).toMatchObject({ ok: true, dados: { meta: null } });
+  });
+  it("fim antes do início mostra erro (critério da H5)", () => {
+    expect(validarSprint("2026-11-24", "2026-11-17", "")).toEqual({
+      ok: false,
+      erros: { fim: "A data de fim não pode ser antes da data de início." },
+    });
+  });
+  it("recusa datas vazias ou inválidas e Meta longa demais", () => {
+    expect(validarSprint("", "2026-11-17", "").ok).toBe(false);
+    expect(validarSprint("2026-13-40", "2026-11-17", "").ok).toBe(false);
+    expect(validarSprint("2026-11-17", "2026-11-24", "a".repeat(301)).ok).toBe(false);
+  });
+});
+
+describe("validarMetas", () => {
+  it("aceita vazio (sem meta), decimal com vírgula e inteiro", () => {
+    expect(validarMetas("", "", "")).toEqual({ ok: true, dados: { lead: null, cycle: null, velocity: null } });
+    expect(validarMetas("3,5", "2", "13")).toEqual({ ok: true, dados: { lead: 3.5, cycle: 2, velocity: 13 } });
+  });
+  it("recusa zero, negativo, texto e Velocity fracionada", () => {
+    expect(validarMetas("0", "", "").ok).toBe(false);
+    expect(validarMetas("", "-1", "").ok).toBe(false);
+    expect(validarMetas("abc", "", "").ok).toBe(false);
+    expect(validarMetas("", "", "2.5").ok).toBe(false);
+  });
+});

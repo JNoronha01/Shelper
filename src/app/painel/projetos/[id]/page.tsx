@@ -3,24 +3,37 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
-import { carregarBoard } from "@/lib/board/dados";
-import { eUuid, formatarDataHora } from "@/lib/board/regras";
+import { carregarBoard, carregarEventosParaCalculo, type Cartao, type Metas, type Sprint } from "@/lib/board/dados";
+import { eUuid } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
+import { diaLocal } from "@/lib/metricas/calculo";
+import { montarPainel, PERIODO_TUDO } from "@/lib/metricas/painel";
+import { Abas, eAba, type IdAba } from "./abas";
 import { Board } from "./board";
 import { ConfiguracaoWip } from "./configuracao-wip";
+import { Historico } from "./historico";
+import { Metricas } from "./metricas";
+import { NovaSprint, SprintAtiva, SprintsEncerradas } from "./sprint";
 
 export const metadata: Metadata = { title: "Board · Shelper" };
 
-async function ConteudoProjeto({ params }: { params: PageProps<"/painel/projetos/[id]">["params"] }) {
+type Props = PageProps<"/painel/projetos/[id]">;
+
+async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | "searchParams">) {
   const { id } = await params;
+  const consulta = await searchParams;
+  const aba: IdAba = eAba(consulta.aba) ? consulta.aba : "board";
   if (!eUuid(id)) notFound();
   const usuario = await exigirUsuario();
   const dados = await carregarBoard(id, usuario.id);
   // Projeto de outro time aparece como inexistente: o RLS não devolve a linha.
   if (!dados) notFound();
 
-  const { projeto, papel, membros, cartoes, eventos } = dados;
+  const { projeto, papel, membros, cartoes, eventos, sprints, metas } = dados;
   const concluidos = cartoes.filter((c) => c.coluna === "Concluído");
+  const agora = new Date().toISOString();
+  const ativa = sprints.find((x) => !x.encerrada) ?? null;
+  const backlog = cartoes.filter((c) => c.coluna === "Backlog");
   const pontosTotais = cartoes.reduce((s, c) => s + c.pontos, 0);
   const pontosConcluidos = concluidos.reduce((s, c) => s + c.pontos, 0);
 
@@ -50,61 +63,67 @@ async function ConteudoProjeto({ params }: { params: PageProps<"/painel/projetos
         </dl>
       </div>
 
-      {papel === "dono" && (
-        <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
+      <Abas projetoId={projeto.id} atual={aba} />
+
+      {aba === "board" && (
+        <>
+          {papel === "dono" && (
+            <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
+          )}
+          <Board
+            projetoId={projeto.id}
+            limites={{ wipAndamento: projeto.wipAndamento, wipRevisao: projeto.wipRevisao }}
+            cartoes={cartoes}
+          />
+        </>
       )}
 
-      <Board
-        projetoId={projeto.id}
-        limites={{ wipAndamento: projeto.wipAndamento, wipRevisao: projeto.wipRevisao }}
-        cartoes={cartoes}
-      />
-
-      <section aria-labelledby="titulo-historico" className="flex flex-col gap-3">
-        <div>
-          <h2 id="titulo-historico" className="font-semibold">
-            Histórico de movimentações
-          </h2>
-          <p className="text-sm text-zinc-500">
-            Cada criação e movimentação vira um evento com a hora do servidor. Os eventos não podem ser editados nem apagados
-            e são a base das métricas.
-          </p>
+      {aba === "sprint" && (
+        <div className="flex flex-col gap-6">
+          {ativa ? (
+            <SprintAtiva sprint={ativa} cartoes={cartoes} backlog={backlog} />
+          ) : (
+            <NovaSprint projetoId={projeto.id} backlog={backlog} hoje={diaLocal(agora)} numero={sprints.length + 1} />
+          )}
+          <SprintsEncerradas sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
         </div>
-        {eventos.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
-            Nenhum evento ainda. Crie um cartão no Backlog para começar.
-          </p>
-        ) : (
-          <ol className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white text-sm dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
-            {eventos.map((e) => (
-              <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
-                <time dateTime={e.em} className="w-24 shrink-0 tabular-nums text-zinc-500">
-                  {formatarDataHora(e.em)}
-                </time>
-                <span className="min-w-0 flex-1 truncate font-medium">{e.titulo}</span>
-                <span className="text-zinc-600 dark:text-zinc-400">
-                  {e.de ? (
-                    <>
-                      {e.de} <span aria-hidden="true">→</span>
-                      <span className="sr-only">para</span> {e.para}
-                    </>
-                  ) : (
-                    <>Criado no {e.para}</>
-                  )}
-                </span>
-                {e.acimaDoWip && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                    acima do WIP
-                  </span>
-                )}
-                <span className="text-xs text-zinc-500">{e.meu ? "por você" : "por outro integrante"}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      )}
+      {aba === "metricas" && (
+        <AbaMetricas
+          projetoId={projeto.id}
+          cartoes={cartoes}
+          sprints={sprints}
+          metas={metas}
+          escolhida={typeof consulta.periodo === "string" ? consulta.periodo : "tudo"}
+          agora={agora}
+        />
+      )}
+      {aba === "historico" && <Historico eventos={eventos} />}
     </>
   );
+}
+
+// Só carrega todos os eventos quando a aba Métricas é aberta.
+async function AbaMetricas({
+  projetoId,
+  cartoes,
+  sprints,
+  metas,
+  escolhida,
+  agora,
+}: {
+  projetoId: string;
+  cartoes: Cartao[];
+  sprints: Sprint[];
+  metas: Metas;
+  escolhida: string;
+  agora: string;
+}) {
+  const eventos = await carregarEventosParaCalculo(projetoId);
+  const sprint = sprints.find((s) => s.id === escolhida);
+  const periodo = sprint ? { inicio: sprint.inicio, fim: sprint.fim } : PERIODO_TUDO;
+  const painel = montarPainel(cartoes, eventos, periodo, metas, agora);
+  return <Metricas projetoId={projetoId} painel={painel} metas={metas} sprints={sprints} escolhida={sprint ? sprint.id : "tudo"} />;
 }
 
 function CarregandoBoard() {
@@ -121,11 +140,11 @@ function CarregandoBoard() {
   );
 }
 
-export default function PaginaProjeto({ params }: PageProps<"/painel/projetos/[id]">) {
+export default function PaginaProjeto({ params, searchParams }: Props) {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8">
       <Suspense fallback={<CarregandoBoard />}>
-        <ConteudoProjeto params={params} />
+        <ConteudoProjeto params={params} searchParams={searchParams} />
       </Suspense>
     </main>
   );

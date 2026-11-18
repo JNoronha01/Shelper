@@ -4,7 +4,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { ROTA_ENTRADA } from "@/lib/auth/rotas";
-import { eUuid, validarCartao, validarLimitesWip, validarNomeProjeto } from "@/lib/board/regras";
+import { eUuid, validarCartao, validarLimitesWip, validarMetas, validarNomeProjeto, validarSprint } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import type { EstadoAcao, ResultadoMover } from "./estado";
@@ -127,4 +127,98 @@ export async function moverCartao(entrada: {
 
   refresh();
   return { status: "ok", acimaDoWip: r.acima_do_wip === true };
+}
+
+// ---------------------------------------------------------------- Sprint e metas
+
+const idsDe = (form: FormData) => form.getAll("cartoes").filter((v): v is string => typeof v === "string" && eUuid(v));
+
+export async function criarSprint(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const projeto = form.get("projeto");
+  const valores = { inicio: String(form.get("inicio") ?? ""), fim: String(form.get("fim") ?? ""), meta: String(form.get("meta") ?? "") };
+  if (!eUuid(projeto)) return { mensagem: SEM_ACESSO };
+  const v = validarSprint(form.get("inicio"), form.get("fim"), form.get("meta"));
+  if (!v.ok) return { erros: v.erros, valores };
+
+  const supabase = await clienteComSessao();
+  const { error } = await supabase.rpc("criar_sprint", {
+    p_projeto: projeto,
+    p_inicio: v.dados.inicio,
+    p_fim: v.dados.fim,
+    p_meta: v.dados.meta,
+    p_cartoes: idsDe(form),
+  });
+  if (error) return { mensagem: mensagemDoBanco(error), valores };
+
+  refresh();
+  return { sucesso: "Sprint criada.", versao: Date.now() };
+}
+
+export async function editarSprint(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const sprint = form.get("sprint");
+  const valores = { inicio: String(form.get("inicio") ?? ""), fim: String(form.get("fim") ?? ""), meta: String(form.get("meta") ?? "") };
+  if (!eUuid(sprint)) return { mensagem: SEM_ACESSO };
+  const v = validarSprint(form.get("inicio"), form.get("fim"), form.get("meta"));
+  if (!v.ok) return { erros: v.erros, valores };
+
+  const supabase = await clienteComSessao();
+  const { error } = await supabase.rpc("editar_sprint", {
+    p_sprint: sprint,
+    p_inicio: v.dados.inicio,
+    p_fim: v.dados.fim,
+    p_meta: v.dados.meta,
+  });
+  if (error) return { mensagem: mensagemDoBanco(error), valores };
+
+  refresh();
+  return { sucesso: "Sprint atualizada.", versao: Date.now() };
+}
+
+export async function puxarCartoes(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const sprint = form.get("sprint");
+  if (!eUuid(sprint)) return { mensagem: SEM_ACESSO };
+  const ids = idsDe(form);
+  if (ids.length === 0) return { mensagem: "Marque ao menos um cartão do Backlog." };
+
+  const supabase = await clienteComSessao();
+  const { data, error } = await supabase.rpc("puxar_cartoes_para_sprint", { p_sprint: sprint, p_cartoes: ids });
+  if (error) return { mensagem: mensagemDoBanco(error) };
+
+  refresh();
+  return { sucesso: `${data} ${data === 1 ? "cartão foi" : "cartões foram"} para A fazer.`, versao: Date.now() };
+}
+
+export async function encerrarSprint(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const sprint = form.get("sprint");
+  if (!eUuid(sprint)) return { mensagem: SEM_ACESSO };
+  const supabase = await clienteComSessao();
+  const { error } = await supabase.rpc("encerrar_sprint", { p_sprint: sprint });
+  if (error) return { mensagem: mensagemDoBanco(error) };
+
+  refresh();
+  return { sucesso: "Sprint encerrada.", versao: Date.now() };
+}
+
+export async function definirMetas(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const projeto = form.get("projeto");
+  const valores = {
+    lead: String(form.get("lead") ?? ""),
+    cycle: String(form.get("cycle") ?? ""),
+    velocity: String(form.get("velocity") ?? ""),
+  };
+  if (!eUuid(projeto)) return { mensagem: SEM_ACESSO };
+  const v = validarMetas(form.get("lead"), form.get("cycle"), form.get("velocity"));
+  if (!v.ok) return { erros: v.erros, valores };
+
+  const supabase = await clienteComSessao();
+  const { error } = await supabase.rpc("definir_metas", {
+    p_projeto: projeto,
+    p_lead: v.dados.lead,
+    p_cycle: v.dados.cycle,
+    p_velocity: v.dados.velocity,
+  });
+  if (error) return { mensagem: mensagemDoBanco(error), valores };
+
+  refresh();
+  return { sucesso: "Metas salvas.", versao: Date.now() };
 }

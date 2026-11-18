@@ -12,6 +12,9 @@ Requisitos: Node 24 e um projeto no [Supabase](https://supabase.com) (o plano gr
 3. Aplique a migração `supabase/migrations/20261113000000_perfis.sql`: cole no SQL Editor do
    Supabase ou rode `supabase db push` com a CLI. Ela só cria coisas novas (tabela `perfis`,
    política de RLS e gatilho) e pode ser executada mais de uma vez.
+   Depois rode, nesta ordem, `20261117000000_board.sql` e `20261118000000_sprints_metas.sql`
+   (Sprints e metas). **Todas as migrações são aditivas** (só criam, nunca renomeiam nem
+   removem), porque as versões antigas do site (branches `sprint-N`) usam o mesmo banco.
 4. Em Authentication → URL Configuration, cadastre a URL do site (ex.: `http://localhost:3000`
    e a da Vercel) em *Site URL* / *Redirect URLs*, para o link de confirmação de e-mail voltar
    para `/auth/confirmar`.

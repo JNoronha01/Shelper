@@ -93,3 +93,49 @@ const FORMATO_DATA_HORA = new Intl.DateTimeFormat("pt-BR", {
 export function formatarDataHora(iso: string): string {
   return FORMATO_DATA_HORA.format(new Date(iso));
 }
+
+// ---------------------------------------------------------------- Sprint e metas
+
+export const META_SPRINT_MAXIMO = 300;
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+const dataValida = (v: string) => DATA.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+
+export function validarSprint(
+  inicioBruto: FormDataEntryValue | null | undefined,
+  fimBruto: FormDataEntryValue | null | undefined,
+  metaBruta: FormDataEntryValue | null | undefined,
+): Resultado<{ inicio: string; fim: string; meta: string | null }> {
+  const erros: Partial<Record<string, string>> = {};
+  const inicio = texto(inicioBruto);
+  const fim = texto(fimBruto);
+  const meta = texto(metaBruta);
+  if (!dataValida(inicio)) erros.inicio = "Informe a data de início.";
+  if (!dataValida(fim)) erros.fim = "Informe a data de fim.";
+  // Datas no formato AAAA-MM-DD se comparam como texto.
+  if (!erros.inicio && !erros.fim && fim < inicio) erros.fim = "A data de fim não pode ser antes da data de início.";
+  if (meta.length > META_SPRINT_MAXIMO) erros.meta = `A Meta pode ter no máximo ${META_SPRINT_MAXIMO} caracteres.`;
+  return Object.keys(erros).length ? { ok: false, erros } : { ok: true, dados: { inicio, fim, meta: meta || null } };
+}
+
+// Metas das métricas: todas opcionais. Vazio = sem meta; se preenchido, número maior que zero.
+export function validarMetas(
+  leadBruto: FormDataEntryValue | null | undefined,
+  cycleBruto: FormDataEntryValue | null | undefined,
+  velocityBruta: FormDataEntryValue | null | undefined,
+): Resultado<{ lead: number | null; cycle: number | null; velocity: number | null }> {
+  const erros: Partial<Record<string, string>> = {};
+  const ler = (bruto: FormDataEntryValue | null | undefined, nome: string, inteiro: boolean) => {
+    const t = texto(bruto).replace(",", ".");
+    if (!t) return null;
+    const n = Number(t);
+    if (!Number.isFinite(n) || n <= 0 || (inteiro && !Number.isInteger(n))) {
+      erros[nome] = inteiro ? "Use um número inteiro maior que zero ou deixe em branco." : "Use um número maior que zero ou deixe em branco.";
+      return null;
+    }
+    return n;
+  };
+  const lead = ler(leadBruto, "lead", false);
+  const cycle = ler(cycleBruto, "cycle", false);
+  const velocity = ler(velocityBruta, "velocity", true);
+  return Object.keys(erros).length ? { ok: false, erros } : { ok: true, dados: { lead, cycle, velocity } };
+}

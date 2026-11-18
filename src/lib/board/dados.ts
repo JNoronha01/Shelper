@@ -6,7 +6,15 @@ import { criarClienteServidor } from "@/lib/supabase/server";
 
 export type ResumoProjeto = { id: string; nome: string; criadoEm: string; papel: "dono" | "membro" };
 
-export type Cartao = { id: string; titulo: string; pontos: number; coluna: Coluna; criadoEm: string };
+export type Cartao = { id: string; titulo: string; pontos: number; coluna: Coluna; criadoEm: string; sprintId: string | null };
+
+export type Sprint = { id: string; numero: number; inicio: string; fim: string; meta: string | null; encerrada: boolean };
+
+// Metas das métricas, digitadas pelo time. Qualquer uma pode ficar em branco (null).
+export type Metas = { leadDias: number | null; cycleHoras: number | null; velocity: number | null };
+
+// Evento reduzido, só o que o cálculo das métricas precisa.
+export type EventoCalculo = { cartaoId: string; de: Coluna | null; para: Coluna; em: string };
 
 export type Evento = {
   id: number;
@@ -20,6 +28,8 @@ export type Evento = {
 
 export type DadosBoard = {
   projeto: { id: string; nome: string; wipAndamento: number; wipRevisao: number };
+  metas: Metas;
+  sprints: Sprint[];
   papel: "dono" | "membro";
   membros: number;
   cartoes: Cartao[];
@@ -48,12 +58,16 @@ export async function listarProjetos(usuarioId: string): Promise<ResumoProjeto[]
 export async function carregarBoard(projetoId: string, usuarioId: string): Promise<DadosBoard | null> {
   const supabase = await criarClienteServidor();
 
-  const [projeto, membros, cartoes, eventos] = await Promise.all([
-    supabase.from("projetos").select("id, nome, wip_andamento, wip_revisao").eq("id", projetoId).maybeSingle(),
+  const [projeto, membros, cartoes, eventos, sprints] = await Promise.all([
+    supabase
+      .from("projetos")
+      .select("id, nome, wip_andamento, wip_revisao, meta_lead_dias, meta_cycle_horas, meta_velocity")
+      .eq("id", projetoId)
+      .maybeSingle(),
     supabase.from("membros").select("usuario_id, papel").eq("projeto_id", projetoId),
     supabase
       .from("cartoes")
-      .select("id, titulo, pontos, coluna_atual, criado_em")
+      .select("id, titulo, pontos, coluna_atual, criado_em, sprint_id")
       .eq("projeto_id", projetoId)
       .order("criado_em", { ascending: true }),
     supabase
@@ -61,10 +75,15 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       .select("id, de_coluna, para_coluna, em, usuario_id, acima_do_wip, cartoes!inner(titulo, projeto_id)")
       .eq("cartoes.projeto_id", projetoId)
       .order("em", { ascending: false })
-      .limit(12),
+      .limit(50),
+    supabase
+      .from("sprints")
+      .select("id, numero, inicio, fim, meta, encerrada")
+      .eq("projeto_id", projetoId)
+      .order("numero", { ascending: true }),
   ]);
 
-  for (const r of [projeto, membros, cartoes, eventos]) {
+  for (const r of [projeto, membros, cartoes, eventos, sprints]) {
     if (r.error) {
       console.error("Falha ao carregar o board", { code: r.error.code });
       throw new Error("Não foi possível carregar o board.");
@@ -94,11 +113,17 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       wipAndamento: projeto.data.wip_andamento,
       wipRevisao: projeto.data.wip_revisao,
     },
+    metas: {
+      leadDias: projeto.data.meta_lead_dias,
+      cycleHoras: projeto.data.meta_cycle_horas,
+      velocity: projeto.data.meta_velocity,
+    },
+    sprints: (sprints.data ?? []) as Sprint[],
     papel: eu.papel,
     membros: listaMembros.length,
     cartoes: (cartoes.data ?? [])
       .filter((c) => eColuna(c.coluna_atual))
-      .map((c) => ({ id: c.id, titulo: c.titulo, pontos: c.pontos, coluna: c.coluna_atual as Coluna, criadoEm: c.criado_em })),
+      .map((c) => ({ id: c.id, titulo: c.titulo, pontos: c.pontos, coluna: c.coluna_atual as Coluna, criadoEm: c.criado_em, sprintId: c.sprint_id })),
     eventos: ((eventos.data ?? []) as unknown as LinhaEvento[])
       .filter((e) => eColuna(e.para_coluna))
       .map((e) => ({
@@ -111,4 +136,28 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
         acimaDoWip: e.acima_do_wip,
       })),
   };
+}
+
+// Todos os eventos do projeto, para as métricas. O histórico da tela mostra só os últimos 50;
+// o cálculo precisa de todos. Limite de 10 mil só como trava de segurança.
+export async function carregarEventosParaCalculo(projetoId: string): Promise<EventoCalculo[]> {
+  const supabase = await criarClienteServidor();
+  const { data, error } = await supabase
+    .from("eventos")
+    .select("cartao_id, de_coluna, para_coluna, em, cartoes!inner(projeto_id)")
+    .eq("cartoes.projeto_id", projetoId)
+    .order("em", { ascending: true })
+    .limit(10000);
+  if (error) {
+    console.error("Falha ao carregar eventos", { code: error.code });
+    throw new Error("Não foi possível carregar os eventos.");
+  }
+  return (data ?? [])
+    .filter((e) => eColuna(e.para_coluna))
+    .map((e) => ({
+      cartaoId: e.cartao_id,
+      de: eColuna(e.de_coluna) ? e.de_coluna : null,
+      para: e.para_coluna as Coluna,
+      em: e.em,
+    }));
 }
