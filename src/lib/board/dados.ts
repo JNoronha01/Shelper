@@ -4,7 +4,19 @@ import { criarClienteServidor } from "@/lib/supabase/server";
 // Leitura dos dados do board. Usa o cliente com a sessão do usuário, então as
 // políticas de RLS do banco devolvem apenas projetos dos quais ele é membro.
 
-export type ResumoProjeto = { id: string; nome: string; criadoEm: string; papel: "dono" | "membro" };
+export type ResumoProjeto = {
+  id: string;
+  nome: string;
+  criadoEm: string;
+  papel: "dono" | "membro";
+  membros: number;
+  cartoes: number;
+  pontosTotais: number;
+  pontosFeitos: number;
+  // Cartões por coluna, na ordem do fluxo (para a mini barra do card do projeto).
+  porColuna: number[];
+  sprintAtiva: { numero: number; fim: string } | null;
+};
 
 export type ItemChecklist = { id: string; texto: string; feito: boolean };
 
@@ -71,16 +83,42 @@ export async function listarProjetos(usuarioId: string): Promise<ResumoProjeto[]
   const supabase = await criarClienteServidor();
   const { data, error } = await supabase
     .from("membros")
-    .select("papel, projetos(id, nome, criado_em)")
+    .select("papel, projetos(id, nome, criado_em, cartoes(pontos, coluna_atual), sprints(numero, fim, encerrada), membros(count))")
     .eq("usuario_id", usuarioId);
   if (error) {
     console.error("Falha ao listar projetos", { code: error.code });
     throw new Error("Não foi possível carregar os projetos.");
   }
-  type Linha = { papel: "dono" | "membro"; projetos: { id: string; nome: string; criado_em: string } | null };
+  type Linha = {
+    papel: "dono" | "membro";
+    projetos: {
+      id: string;
+      nome: string;
+      criado_em: string;
+      cartoes: { pontos: number; coluna_atual: string }[];
+      sprints: { numero: number; fim: string; encerrada: boolean }[];
+      membros: { count: number }[];
+    } | null;
+  };
   return ((data ?? []) as unknown as Linha[])
     .filter((l) => l.projetos)
-    .map((l) => ({ id: l.projetos!.id, nome: l.projetos!.nome, criadoEm: l.projetos!.criado_em, papel: l.papel }))
+    .map((l) => {
+      const p = l.projetos!;
+      const ativa = p.sprints.find((x) => !x.encerrada);
+      const feitos = p.cartoes.filter((c) => c.coluna_atual === "Concluído");
+      return {
+        id: p.id,
+        nome: p.nome,
+        criadoEm: p.criado_em,
+        papel: l.papel,
+        membros: p.membros[0]?.count ?? 1,
+        cartoes: p.cartoes.length,
+        pontosTotais: p.cartoes.reduce((s, c) => s + c.pontos, 0),
+        pontosFeitos: feitos.reduce((s, c) => s + c.pontos, 0),
+        porColuna: COLUNAS.map((col) => p.cartoes.filter((c) => c.coluna_atual === col).length),
+        sprintAtiva: ativa ? { numero: ativa.numero, fim: ativa.fim } : null,
+      };
+    })
     .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
 }
 

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
+import { Seletor } from "@/components/seletor";
 import { DESCRICAO_MAXIMO, TITULO_MAXIMO } from "@/lib/board/regras";
 import { COLUNAS, type Coluna } from "@/lib/colunas";
 import { criarCartao } from "../../acoes";
@@ -76,19 +77,13 @@ function Formulario({
           <label htmlFor="novo-coluna" className="text-sm font-medium">
             Coluna
           </label>
-          <select
+          <Seletor
             id="novo-coluna"
             name="coluna"
-            defaultValue={v?.coluna ?? colunaInicial}
-            aria-invalid={estado.erros?.coluna ? true : undefined}
-            className={CAMPO}
-          >
-            {COLUNAS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+            opcoes={COLUNAS.map((c) => ({ valor: c, rotulo: c }))}
+            padrao={v?.coluna ?? colunaInicial}
+            invalido={Boolean(estado.erros?.coluna)}
+          />
           <Erro id="novo-coluna-erro" texto={estado.erros?.coluna} />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -102,7 +97,7 @@ function Formulario({
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="novo-descricao" className="text-sm font-medium">
-          Descrição <span className="font-normal text-zinc-500">(opcional)</span>
+          Descrição <span className="font-normal text-suave">(opcional)</span>
         </label>
         <textarea
           id="novo-descricao"
@@ -116,10 +111,10 @@ function Formulario({
         <Erro id="novo-descricao-erro" texto={estado.erros?.descricao} />
       </div>
 
-      {estado.mensagem && <p className="text-sm text-red-700 dark:text-red-400">{estado.mensagem}</p>}
+      {estado.mensagem && <p className="text-sm text-perigo">{estado.mensagem}</p>}
 
       {estado.wip ? (
-        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-aviso/60 bg-aviso/10 p-3 text-sm text-aviso">
           <p>
             A coluna <strong>{estado.wip.coluna}</strong> está no limite de WIP ({estado.wip.ocupados} de {estado.wip.limite}). Criar
             mesmo assim? O evento ficará marcado como acima do limite.

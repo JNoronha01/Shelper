@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
-import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO } from "@/components/botoes";
+import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, BOTAO_TEXTO, CAIXA, CAMPO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
 import type { Cartao } from "@/lib/board/dados";
 import { DESCRICAO_MAXIMO, ITEM_CHECKLIST_MAXIMO, TITULO_MAXIMO, formatarDataHora } from "@/lib/board/regras";
@@ -28,8 +28,8 @@ export function DetalheCartao({
       {cartao && (
         // key: ao trocar de cartão, os formulários começam do zero.
         <div key={cartao.id} className="flex flex-col gap-6">
-          <p className="text-sm text-zinc-500">
-            Em <strong className="font-medium text-zinc-700 dark:text-zinc-300">{cartao.coluna}</strong> · criado em{" "}
+          <p className="text-sm text-suave">
+            Em <strong className="font-medium text-texto">{cartao.coluna}</strong> · criado em{" "}
             {formatarDataHora(cartao.criadoEm)}
           </p>
           <TituloEPontos cartao={cartao} />
@@ -52,10 +52,10 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
 }
 
 function Status({ erro, ok }: { erro?: string; ok?: string }) {
-  if (erro) return <p className="text-xs text-red-700 dark:text-red-400">{erro}</p>;
+  if (erro) return <p className="text-xs text-perigo">{erro}</p>;
   if (ok)
     return (
-      <p role="status" className="text-xs text-emerald-700 dark:text-emerald-400">
+      <p role="status" className="text-xs text-bom">
         {ok}
       </p>
     );
@@ -149,30 +149,30 @@ function Checklist({ cartao }: { cartao: Cartao }) {
     <Secao titulo={`Checklist${total ? ` (${feitos}/${total})` : ""}`}>
       {total > 0 && (
         <div
-          className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+          className="h-1.5 overflow-hidden rounded-full bg-elevado"
           role="progressbar"
           aria-valuenow={porcentagem}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="Checklist concluído"
         >
-          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${porcentagem}%` }} />
+          <div className="h-full bg-bom transition-all" style={{ width: `${porcentagem}%` }} />
         </div>
       )}
       <ul className="flex flex-col gap-1">
         {cartao.checklist.map((item) => (
-          <li key={item.id} className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
+          <li key={item.id} className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-fundo">
             <input
               id={`item-${item.id}`}
               type="checkbox"
               checked={item.feito}
               disabled={ocupado}
               onChange={(e) => executar(() => marcarItem(item.id, e.target.checked))}
-              className="size-4 accent-indigo-600"
+              className={CAIXA}
             />
             <label
               htmlFor={`item-${item.id}`}
-              className={`flex-1 text-sm break-words ${item.feito ? "text-zinc-500 line-through" : ""}`}
+              className={`flex-1 text-sm break-words ${item.feito ? "text-suave line-through" : ""}`}
             >
               {item.texto}
             </label>
@@ -180,7 +180,7 @@ function Checklist({ cartao }: { cartao: Cartao }) {
               type="button"
               disabled={ocupado}
               onClick={() => executar(() => removerItem(item.id))}
-              className="rounded px-1.5 text-xs text-zinc-500 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:hover:text-red-400"
+              className={`${BOTAO_TEXTO} opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:!text-perigo`}
               aria-label={`Remover o item "${item.texto}"`}
             >
               Remover
@@ -219,7 +219,7 @@ function VotarPontos({ projetoId, cartao, emVotacao }: { projetoId: string; cart
 
   return (
     <Secao titulo="Planning Poker">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-suave">
         O time vota os pontos escondido, revela junto e decide o valor final. O valor escolhido substitui os pontos do cartão.
       </p>
       <div>

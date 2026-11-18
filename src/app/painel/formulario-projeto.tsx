@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Aviso, Campo } from "@/app/(acesso)/campo";
 import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
+import { CampoNumero } from "@/components/numero";
 import { NOME_PROJETO_MAXIMO, WIP_MAXIMO, WIP_MINIMO } from "@/lib/board/regras";
 import { criarProjeto } from "./acoes";
 import { ESTADO_INICIAL } from "./estado";
@@ -43,30 +44,36 @@ function FormularioProjeto({ onCancelar }: { onCancelar: () => void }) {
       />
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">Limites de WIP</legend>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-suave">
           Quantos cartões cabem ao mesmo tempo em cada coluna. O time pode mudar depois (ou decidir por votação).
         </p>
         <div className="grid grid-cols-2 gap-3">
-          <Campo
-            name="andamento"
-            rotulo="Em andamento"
-            type="number"
-            min={WIP_MINIMO}
-            max={WIP_MAXIMO}
-            required
-            defaultValue={estado.valores?.andamento ?? "3"}
-            erro={estado.erros?.andamento}
-          />
-          <Campo
-            name="revisao"
-            rotulo="Em revisão"
-            type="number"
-            min={WIP_MINIMO}
-            max={WIP_MAXIMO}
-            required
-            defaultValue={estado.valores?.revisao ?? "2"}
-            erro={estado.erros?.revisao}
-          />
+          {(
+            [
+              ["andamento", "Em andamento", "3"],
+              ["revisao", "Em revisão", "2"],
+            ] as const
+          ).map(([nome, rotulo, padrao]) => (
+            <div key={nome} className="flex flex-col gap-1.5">
+              <label htmlFor={`projeto-${nome}`} className="text-sm text-suave">
+                {rotulo}
+              </label>
+              <CampoNumero
+                id={`projeto-${nome}`}
+                name={nome}
+                min={WIP_MINIMO}
+                max={WIP_MAXIMO}
+                padrao={estado.valores?.[nome] ?? padrao}
+                invalido={Boolean(estado.erros?.[nome])}
+                descritoPor={estado.erros?.[nome] ? `projeto-${nome}-erro` : undefined}
+              />
+              {estado.erros?.[nome] && (
+                <p id={`projeto-${nome}-erro`} className="text-xs text-perigo">
+                  {estado.erros[nome]}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       </fieldset>
       <div className="flex justify-end gap-2">
