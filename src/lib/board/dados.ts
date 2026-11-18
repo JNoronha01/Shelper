@@ -6,7 +6,35 @@ import { criarClienteServidor } from "@/lib/supabase/server";
 
 export type ResumoProjeto = { id: string; nome: string; criadoEm: string; papel: "dono" | "membro" };
 
-export type Cartao = { id: string; titulo: string; pontos: number; coluna: Coluna; criadoEm: string; sprintId: string | null };
+export type ItemChecklist = { id: string; texto: string; feito: boolean };
+
+export type Cartao = {
+  id: string;
+  titulo: string;
+  pontos: number;
+  coluna: Coluna;
+  criadoEm: string;
+  sprintId: string | null;
+  descricao: string | null;
+  checklist: ItemChecklist[];
+};
+
+export type Votacao = {
+  id: string;
+  tipo: "pontos" | "wip";
+  cartaoId: string | null;
+  coluna: "Em andamento" | "Em revisão" | null;
+  situacao: "aberta" | "revelada" | "encerrada";
+  resultado: number | null;
+  criadoEm: string;
+};
+
+// valor = null quando o voto ainda está escondido (votação aberta e o voto é de outra pessoa).
+export type Voto = { votacaoId: string; usuarioId: string; nome: string; valor: number | null };
+
+export type Membro = { usuarioId: string; nome: string; email: string; papel: "dono" | "membro"; entrouEm: string };
+
+export type Convite = { codigo: string; expiraEm: string };
 
 export type Sprint = { id: string; numero: number; inicio: string; fim: string; meta: string | null; encerrada: boolean };
 
@@ -30,6 +58,7 @@ export type DadosBoard = {
   projeto: { id: string; nome: string; wipAndamento: number; wipRevisao: number };
   metas: Metas;
   sprints: Sprint[];
+  votacoes: Votacao[];
   papel: "dono" | "membro";
   membros: number;
   cartoes: Cartao[];
@@ -58,7 +87,7 @@ export async function listarProjetos(usuarioId: string): Promise<ResumoProjeto[]
 export async function carregarBoard(projetoId: string, usuarioId: string): Promise<DadosBoard | null> {
   const supabase = await criarClienteServidor();
 
-  const [projeto, membros, cartoes, eventos, sprints] = await Promise.all([
+  const [projeto, membros, cartoes, eventos, sprints, votacoes] = await Promise.all([
     supabase
       .from("projetos")
       .select("id, nome, wip_andamento, wip_revisao, meta_lead_dias, meta_cycle_horas, meta_velocity")
@@ -67,7 +96,7 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
     supabase.from("membros").select("usuario_id, papel").eq("projeto_id", projetoId),
     supabase
       .from("cartoes")
-      .select("id, titulo, pontos, coluna_atual, criado_em, sprint_id")
+      .select("id, titulo, pontos, coluna_atual, criado_em, sprint_id, descricao, checklist_itens(id, texto, feito, criado_em)")
       .eq("projeto_id", projetoId)
       .order("criado_em", { ascending: true }),
     supabase
@@ -81,9 +110,15 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       .select("id, numero, inicio, fim, meta, encerrada")
       .eq("projeto_id", projetoId)
       .order("numero", { ascending: true }),
+    supabase
+      .from("votacoes")
+      .select("id, tipo, cartao_id, coluna, situacao, resultado, criado_em")
+      .eq("projeto_id", projetoId)
+      .order("criado_em", { ascending: false })
+      .limit(30),
   ]);
 
-  for (const r of [projeto, membros, cartoes, eventos, sprints]) {
+  for (const r of [projeto, membros, cartoes, eventos, sprints, votacoes]) {
     if (r.error) {
       console.error("Falha ao carregar o board", { code: r.error.code });
       throw new Error("Não foi possível carregar o board.");
@@ -119,11 +154,31 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       velocity: projeto.data.meta_velocity,
     },
     sprints: (sprints.data ?? []) as Sprint[],
+    votacoes: (votacoes.data ?? []).map((v) => ({
+      id: v.id,
+      tipo: v.tipo,
+      cartaoId: v.cartao_id,
+      coluna: v.coluna,
+      situacao: v.situacao,
+      resultado: v.resultado,
+      criadoEm: v.criado_em,
+    })),
     papel: eu.papel,
     membros: listaMembros.length,
     cartoes: (cartoes.data ?? [])
       .filter((c) => eColuna(c.coluna_atual))
-      .map((c) => ({ id: c.id, titulo: c.titulo, pontos: c.pontos, coluna: c.coluna_atual as Coluna, criadoEm: c.criado_em, sprintId: c.sprint_id })),
+      .map((c) => ({
+        id: c.id,
+        titulo: c.titulo,
+        pontos: c.pontos,
+        coluna: c.coluna_atual as Coluna,
+        criadoEm: c.criado_em,
+        sprintId: c.sprint_id,
+        descricao: c.descricao,
+        checklist: ((c.checklist_itens ?? []) as { id: string; texto: string; feito: boolean; criado_em: string }[])
+          .sort((a, b) => a.criado_em.localeCompare(b.criado_em))
+          .map((i) => ({ id: i.id, texto: i.texto, feito: i.feito })),
+      })),
     eventos: ((eventos.data ?? []) as unknown as LinhaEvento[])
       .filter((e) => eColuna(e.para_coluna))
       .map((e) => ({
@@ -160,4 +215,40 @@ export async function carregarEventosParaCalculo(projetoId: string): Promise<Eve
       para: e.para_coluna as Coluna,
       em: e.em,
     }));
+}
+
+function falhar(onde: string, code: string | undefined): never {
+  console.error(`Falha ao carregar ${onde}`, { code });
+  throw new Error(`Não foi possível carregar ${onde}.`);
+}
+
+// Colegas de projeto com nome e e-mail (o RLS de perfis só deixa ler o próprio perfil,
+// então a função do banco confere se você é membro e devolve a lista).
+export async function carregarMembros(projetoId: string): Promise<Membro[]> {
+  const supabase = await criarClienteServidor();
+  const { data, error } = await supabase.rpc("listar_membros", { p_projeto: projetoId });
+  if (error) falhar("os membros", error.code);
+  return ((data ?? []) as { usuario_id: string; nome: string; email: string; papel: "dono" | "membro"; entrou_em: string }[]).map(
+    (m) => ({ usuarioId: m.usuario_id, nome: m.nome, email: m.email, papel: m.papel, entrouEm: m.entrou_em }),
+  );
+}
+
+// Só o dono consegue ler o convite (RLS); para os outros volta null.
+export async function carregarConvite(projetoId: string): Promise<Convite | null> {
+  const supabase = await criarClienteServidor();
+  const { data, error } = await supabase.from("convites").select("codigo, expira_em").eq("projeto_id", projetoId).maybeSingle();
+  if (error) falhar("o convite", error.code);
+  return data ? { codigo: data.codigo, expiraEm: data.expira_em } : null;
+}
+
+export async function carregarVotos(projetoId: string): Promise<Voto[]> {
+  const supabase = await criarClienteServidor();
+  const { data, error } = await supabase.rpc("votos_do_projeto", { p_projeto: projetoId });
+  if (error) falhar("os votos", error.code);
+  return ((data ?? []) as { votacao_id: string; usuario_id: string; nome: string; valor: number | null }[]).map((v) => ({
+    votacaoId: v.votacao_id,
+    usuarioId: v.usuario_id,
+    nome: v.nome,
+    valor: v.valor,
+  }));
 }
