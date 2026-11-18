@@ -1,9 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
-import { carregarBoard, carregarEventosParaCalculo, type Cartao, type Metas, type Sprint } from "@/lib/board/dados";
+import {
+  carregarBoard,
+  carregarConvite,
+  carregarEventosParaCalculo,
+  carregarMembros,
+  carregarVotos,
+  type Cartao,
+  type Metas,
+  type Sprint,
+  type Votacao,
+} from "@/lib/board/dados";
+import type { LimitesWip } from "@/lib/board/regras";
 import { eUuid } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
 import { diaLocal } from "@/lib/metricas/calculo";
@@ -14,6 +26,8 @@ import { ConfiguracaoWip } from "./configuracao-wip";
 import { Historico } from "./historico";
 import { Metricas } from "./metricas";
 import { NovaSprint, SprintAtiva, SprintsEncerradas } from "./sprint";
+import { Time } from "./time";
+import { Votacoes } from "./votacao";
 
 export const metadata: Metadata = { title: "Board · Shelper" };
 
@@ -29,7 +43,8 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
   // Projeto de outro time aparece como inexistente: o RLS não devolve a linha.
   if (!dados) notFound();
 
-  const { projeto, papel, membros, cartoes, eventos, sprints, metas } = dados;
+  const { projeto, papel, membros, cartoes, eventos, sprints, metas, votacoes } = dados;
+  const limites = { wipAndamento: projeto.wipAndamento, wipRevisao: projeto.wipRevisao };
   const concluidos = cartoes.filter((c) => c.coluna === "Concluído");
   const agora = new Date().toISOString();
   const ativa = sprints.find((x) => !x.encerrada) ?? null;
@@ -70,11 +85,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           {papel === "dono" && (
             <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
           )}
-          <Board
-            projetoId={projeto.id}
-            limites={{ wipAndamento: projeto.wipAndamento, wipRevisao: projeto.wipRevisao }}
-            cartoes={cartoes}
-          />
+          <Board projetoId={projeto.id} limites={limites} cartoes={cartoes} votacoes={votacoes} />
         </>
       )}
 
@@ -99,6 +110,17 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
         />
       )}
       {aba === "historico" && <Historico eventos={eventos} />}
+      {aba === "votacao" && (
+        <AbaVotacao
+          projetoId={projeto.id}
+          votacoes={votacoes}
+          cartoes={cartoes}
+          totalMembros={membros}
+          meuId={usuario.id}
+          limites={limites}
+        />
+      )}
+      {aba === "time" && <AbaTime projetoId={projeto.id} souDono={papel === "dono"} meuId={usuario.id} agora={agora} />}
     </>
   );
 }
@@ -124,6 +146,41 @@ async function AbaMetricas({
   const periodo = sprint ? { inicio: sprint.inicio, fim: sprint.fim } : PERIODO_TUDO;
   const painel = montarPainel(cartoes, eventos, periodo, metas, agora);
   return <Metricas projetoId={projetoId} painel={painel} metas={metas} sprints={sprints} escolhida={sprint ? sprint.id : "tudo"} />;
+}
+
+// Os votos só são carregados na aba Votação (a função do banco esconde os votos dos outros até revelar).
+async function AbaVotacao(props: {
+  projetoId: string;
+  votacoes: Votacao[];
+  cartoes: Cartao[];
+  totalMembros: number;
+  meuId: string;
+  limites: LimitesWip;
+}) {
+  const votos = await carregarVotos(props.projetoId);
+  return <Votacoes {...props} votos={votos} />;
+}
+
+async function AbaTime({ projetoId, souDono, meuId, agora }: { projetoId: string; souDono: boolean; meuId: string; agora: string }) {
+  const [membros, convite, cabecalhos] = await Promise.all([
+    carregarMembros(projetoId),
+    souDono ? carregarConvite(projetoId) : Promise.resolve(null),
+    headers(),
+  ]);
+  // Endereço do site para montar o link de convite (funciona no localhost, no Vercel e no link da Sprint).
+  const host = cabecalhos.get("x-forwarded-host") ?? cabecalhos.get("host") ?? "shelper.vercel.app";
+  const protocolo = cabecalhos.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return (
+    <Time
+      projetoId={projetoId}
+      membros={membros}
+      convite={convite}
+      souDono={souDono}
+      meuId={meuId}
+      origem={`${protocolo}://${host}`}
+      agora={agora}
+    />
+  );
 }
 
 function CarregandoBoard() {

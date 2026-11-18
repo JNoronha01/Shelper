@@ -1,10 +1,15 @@
-import type { Coluna } from "@/lib/colunas";
+import { COLUNAS, type Coluna } from "@/lib/colunas";
+
+const eColuna = (v: string): v is Coluna => (COLUNAS as readonly string[]).includes(v);
 
 // Regras do board usadas na tela. O banco confere as mesmas regras de novo
 // (supabase/migrations/20261117000000_board.sql); aqui elas servem para mostrar
 // a mensagem certa antes de enviar e para pintar as colunas.
 
-export const PONTOS_VALIDOS = [1, 2, 3, 5, 8, 13] as const;
+// Escala Fibonacci ampliada (ideia do professor): de 0 a 89, o baralho comum do Planning Poker.
+export const PONTOS_VALIDOS = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89] as const;
+export const DESCRICAO_MAXIMO = 2000;
+export const ITEM_CHECKLIST_MAXIMO = 200;
 export const NOME_PROJETO_MAXIMO = 80;
 export const TITULO_MAXIMO = 200;
 export const WIP_MINIMO = 1;
@@ -33,11 +38,61 @@ export function validarCartao(
   if (!titulo) erros.titulo = "O título do cartão é obrigatório.";
   else if (titulo.length > TITULO_MAXIMO) erros.titulo = `O título pode ter no máximo ${TITULO_MAXIMO} caracteres.`;
 
-  const pontos = Number(texto(pontosBrutos));
-  if (!(PONTOS_VALIDOS as readonly number[]).includes(pontos)) {
-    erros.pontos = "Escolha os pontos: 1, 2, 3, 5, 8 ou 13.";
+  const bruto = texto(pontosBrutos);
+  const pontos = Number(bruto);
+  if (!bruto || !ePontoValido(pontos)) {
+    erros.pontos = "Escolha os pontos da escala Fibonacci: 0, 1, 2, 3, 5, 8, 13, 21, 34, 55 ou 89.";
   }
   return Object.keys(erros).length ? { ok: false, erros } : { ok: true, dados: { titulo, pontos } };
+}
+
+export const ePontoValido = (n: number) => (PONTOS_VALIDOS as readonly number[]).includes(n);
+
+// Novo projeto: nome e os limites de WIP já na criação (ideia do professor).
+export function validarNovoProjeto(
+  nomeBruto: FormDataEntryValue | null | undefined,
+  andamentoBruto: FormDataEntryValue | null | undefined,
+  revisaoBruto: FormDataEntryValue | null | undefined,
+): Resultado<{ nome: string; andamento: number; revisao: number }> {
+  const nome = validarNomeProjeto(nomeBruto);
+  const wip = validarLimitesWip(andamentoBruto, revisaoBruto);
+  const erros = { ...(nome.ok ? {} : nome.erros), ...(wip.ok ? {} : wip.erros) };
+  if (!nome.ok || !wip.ok) return { ok: false, erros };
+  return { ok: true, dados: { ...nome.dados, ...wip.dados } };
+}
+
+// Cartão novo: além de título e pontos, a coluna onde ele entra e a descrição (opcional).
+export function validarNovoCartao(
+  tituloBruto: FormDataEntryValue | null | undefined,
+  pontosBrutos: FormDataEntryValue | null | undefined,
+  colunaBruta: FormDataEntryValue | null | undefined,
+  descricaoBruta: FormDataEntryValue | null | undefined,
+): Resultado<{ titulo: string; pontos: number; coluna: Coluna; descricao: string | null }> {
+  const base = validarCartao(tituloBruto, pontosBrutos);
+  const erros: Partial<Record<string, string>> = base.ok ? {} : { ...base.erros };
+  const coluna = texto(colunaBruta);
+  if (!eColuna(coluna)) erros.coluna = "Escolha a coluna do cartão.";
+  const descricao = validarDescricao(descricaoBruta);
+  if (!descricao.ok) Object.assign(erros, descricao.erros);
+  if (!base.ok || Object.keys(erros).length) return { ok: false, erros };
+  return { ok: true, dados: { ...base.dados, coluna: coluna as Coluna, descricao: descricao.ok ? descricao.dados.descricao : null } };
+}
+
+export function validarDescricao(bruta: FormDataEntryValue | null | undefined): Resultado<{ descricao: string | null }> {
+  const descricao = texto(bruta);
+  if (descricao.length > DESCRICAO_MAXIMO) {
+    return { ok: false, erros: { descricao: `A descrição pode ter no máximo ${DESCRICAO_MAXIMO} caracteres.` } };
+  }
+  return { ok: true, dados: { descricao: descricao || null } };
+}
+
+export function validarItemChecklist(bruto: FormDataEntryValue | null | undefined): Resultado<{ texto: string }> {
+  const t = texto(bruto);
+  if (!t) return { ok: false, erros: { texto: "Escreva o item." } };
+  if (t.length > ITEM_CHECKLIST_MAXIMO) {
+    return { ok: false, erros: { texto: `O item pode ter no máximo ${ITEM_CHECKLIST_MAXIMO} caracteres.` } };
+  }
+  return { ok: true, dados: { texto: t } };
 }
 
 export function validarLimitesWip(
@@ -138,4 +193,36 @@ export function validarMetas(
   const cycle = ler(cycleBruto, "cycle", false);
   const velocity = ler(velocityBruta, "velocity", true);
   return Object.keys(erros).length ? { ok: false, erros } : { ok: true, dados: { lead, cycle, velocity } };
+}
+
+// ---------------------------------------------------------------- Convite e votação
+
+export const DIAS_CONVITE = [1, 7, 30] as const;
+
+export function validarDiasConvite(bruto: FormDataEntryValue | null | undefined): Resultado<{ dias: number }> {
+  const dias = Number(texto(bruto));
+  if (!Number.isInteger(dias) || dias < 1 || dias > 30) return { ok: false, erros: { dias: "O convite pode valer de 1 a 30 dias." } };
+  return { ok: true, dados: { dias } };
+}
+
+export type TipoVotacao = "pontos" | "wip";
+
+// Valores do baralho: pontos usam a escala Fibonacci; WIP usa de 1 a 20.
+export function valoresDaVotacao(tipo: TipoVotacao): number[] {
+  return tipo === "pontos" ? [...PONTOS_VALIDOS] : Array.from({ length: WIP_MAXIMO }, (_, i) => i + 1);
+}
+
+export function valorDeVotoValido(tipo: TipoVotacao, valor: number): boolean {
+  return valoresDaVotacao(tipo).includes(valor);
+}
+
+// Resumo dos votos revelados: média, menor, maior e o valor do baralho mais próximo da média
+// (sugestão para o time; quem decide é o time).
+export function resumoDosVotos(tipo: TipoVotacao, valores: number[]) {
+  if (valores.length === 0) return null;
+  const media = valores.reduce((s, v) => s + v, 0) / valores.length;
+  const baralho = valoresDaVotacao(tipo);
+  const sugestao = baralho.reduce((melhor, v) => (Math.abs(v - media) < Math.abs(melhor - media) ? v : melhor), baralho[0]);
+  const consenso = valores.every((v) => v === valores[0]);
+  return { media, menor: Math.min(...valores), maior: Math.max(...valores), sugestao, consenso };
 }

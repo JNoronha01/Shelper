@@ -8,6 +8,12 @@ import {
   validarCartao,
   validarLimitesWip,
   validarNomeProjeto,
+  validarNovoProjeto,
+  validarNovoCartao,
+  validarItemChecklist,
+  validarDiasConvite,
+  valorDeVotoValido,
+  resumoDosVotos,
 } from "@/lib/board/regras";
 
 describe("validarNomeProjeto", () => {
@@ -26,7 +32,7 @@ describe("validarNomeProjeto", () => {
 
 describe("validarCartao", () => {
   it("aceita título e pontos de Fibonacci", () => {
-    for (const p of ["1", "2", "3", "5", "8", "13"]) {
+    for (const p of ["0", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89"]) {
       expect(validarCartao("Criar conta", p)).toEqual({ ok: true, dados: { titulo: "Criar conta", pontos: Number(p) } });
     }
   });
@@ -36,10 +42,10 @@ describe("validarCartao", () => {
     if (!r.ok) expect(r.erros.titulo).toBe("O título do cartão é obrigatório.");
   });
   it("pontos fora da escala mostram mensagem", () => {
-    for (const p of ["0", "4", "21", "abc", ""]) {
+    for (const p of ["4", "100", "-1", "abc", ""]) {
       const r = validarCartao("Cartão", p);
       expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.erros.pontos).toMatch(/1, 2, 3, 5, 8 ou 13/);
+      if (!r.ok) expect(r.erros.pontos).toMatch(/55 ou 89/);
     }
   });
 });
@@ -121,5 +127,45 @@ describe("validarMetas", () => {
     expect(validarMetas("", "-1", "").ok).toBe(false);
     expect(validarMetas("abc", "", "").ok).toBe(false);
     expect(validarMetas("", "", "2.5").ok).toBe(false);
+  });
+});
+
+describe("ideias do professor", () => {
+  it("novo projeto já vem com o WIP escolhido pelo time", () => {
+    expect(validarNovoProjeto("Shelper", "4", "2")).toEqual({ ok: true, dados: { nome: "Shelper", andamento: 4, revisao: 2 } });
+    const r = validarNovoProjeto("", "0", "2");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.erros).sort()).toEqual(["andamento", "nome"]);
+  });
+  it("novo cartão escolhe a coluna e aceita descrição opcional", () => {
+    expect(validarNovoCartao("Tela", "5", "Em andamento", "  ")).toEqual({
+      ok: true,
+      dados: { titulo: "Tela", pontos: 5, coluna: "Em andamento", descricao: null },
+    });
+    const r = validarNovoCartao("Tela", "5", "Arquivado", "x".repeat(2001));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.erros).sort()).toEqual(["coluna", "descricao"]);
+  });
+  it("item do checklist não pode ser vazio nem longo demais", () => {
+    expect(validarItemChecklist(" Testar ")).toEqual({ ok: true, dados: { texto: "Testar" } });
+    expect(validarItemChecklist("  ").ok).toBe(false);
+    expect(validarItemChecklist("x".repeat(201)).ok).toBe(false);
+  });
+  it("convite vale de 1 a 30 dias", () => {
+    expect(validarDiasConvite("7")).toEqual({ ok: true, dados: { dias: 7 } });
+    expect(validarDiasConvite("0").ok).toBe(false);
+    expect(validarDiasConvite("31").ok).toBe(false);
+  });
+  it("baralho da votação: Fibonacci para pontos, 1 a 20 para WIP", () => {
+    expect(valorDeVotoValido("pontos", 21)).toBe(true);
+    expect(valorDeVotoValido("pontos", 4)).toBe(false);
+    expect(valorDeVotoValido("wip", 20)).toBe(true);
+    expect(valorDeVotoValido("wip", 21)).toBe(false);
+  });
+  it("resume os votos e sugere o valor do baralho mais perto da média", () => {
+    expect(resumoDosVotos("pontos", [])).toBeNull();
+    expect(resumoDosVotos("pontos", [3, 5, 8])).toMatchObject({ menor: 3, maior: 8, sugestao: 5, consenso: false });
+    expect(resumoDosVotos("pontos", [5, 5])).toMatchObject({ sugestao: 5, consenso: true });
+    expect(resumoDosVotos("wip", [2, 3])).toMatchObject({ media: 2.5, sugestao: 2 });
   });
 });

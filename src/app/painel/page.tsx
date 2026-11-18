@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { listarProjetos } from "@/lib/board/dados";
-import { FormularioProjeto } from "./formulario-projeto";
+import { NovoProjeto } from "./formulario-projeto";
 
 export const metadata: Metadata = { title: "Meus projetos · Shelper" };
 
@@ -21,6 +21,12 @@ async function ListaDeProjetos() {
           ? "Escolha um projeto para abrir o board."
           : "Crie o primeiro projeto: ele já vem com as 5 colunas do fluxo."}
       </p>
+
+      {projetos.length === 0 && (
+        <div>
+          <NovoProjeto destaque />
+        </div>
+      )}
 
       {projetos.length > 0 && (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -56,22 +62,14 @@ async function ListaDeProjetos() {
 export default function PaginaPainel() {
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-10">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-3xl font-bold tracking-tight">Meus projetos</h1>
-          <Suspense fallback={<p className="text-zinc-500">Carregando projetos…</p>}>
-            <ListaDeProjetos />
-          </Suspense>
+          <NovoProjeto />
         </div>
-        <section
-          aria-labelledby="titulo-novo-projeto"
-          className="w-full shrink-0 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm lg:w-80 dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <h2 id="titulo-novo-projeto" className="mb-3 font-semibold">
-            Novo projeto
-          </h2>
-          <FormularioProjeto />
-        </section>
+        <Suspense fallback={<p className="text-zinc-500">Carregando projetos…</p>}>
+          <ListaDeProjetos />
+        </Suspense>
       </div>
     </main>
   );

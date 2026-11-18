@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useOptimistic, useState, useTransition, type DragEvent } from "react";
-import { BOTAO_MINI, BOTAO_PRINCIPAL, CAMPO } from "@/components/botoes";
-import type { Cartao } from "@/lib/board/dados";
-import { PONTOS_VALIDOS, TITULO_MAXIMO, limiteDaColuna, situacaoWip, type LimitesWip, type SituacaoWip } from "@/lib/board/regras";
+import { useOptimistic, useState, useTransition, type DragEvent } from "react";
+import { BOTAO_MINI, BOTAO_PRINCIPAL } from "@/components/botoes";
+import type { Cartao, Votacao } from "@/lib/board/dados";
+import { limiteDaColuna, situacaoWip, type LimitesWip, type SituacaoWip } from "@/lib/board/regras";
 import { COLUNAS, colunaAnterior, proximaColuna, type Coluna } from "@/lib/colunas";
-import { criarCartao, editarCartao, moverCartao } from "../../acoes";
-import { ESTADO_INICIAL, type EstadoAcao } from "../../estado";
+import { moverCartao } from "../../acoes";
+import { DetalheCartao } from "./detalhe-cartao";
+import { NovoCartao } from "./novo-cartao";
 
 const COR_DA_COLUNA: Record<Coluna, string> = {
   Backlog: "bg-zinc-400",
@@ -33,7 +34,17 @@ const ESTILO_WIP: Record<SituacaoWip, { borda: string; selo: string; texto: stri
 
 type Mensagem = { tipo: "ok" | "erro" | "info"; texto: string } | null;
 
-export function Board({ projetoId, limites, cartoes }: { projetoId: string; limites: LimitesWip; cartoes: Cartao[] }) {
+export function Board({
+  projetoId,
+  limites,
+  cartoes,
+  votacoes,
+}: {
+  projetoId: string;
+  limites: LimitesWip;
+  cartoes: Cartao[];
+  votacoes: Votacao[];
+}) {
   // A tela já mostra o cartão na coluna nova enquanto o servidor grava o evento.
   const [visiveis, moverNaTela] = useOptimistic(cartoes, (atual: Cartao[], m: { id: string; para: Coluna }) =>
     atual.map((c) => (c.id === m.id ? { ...c, coluna: m.para } : c)),
@@ -42,6 +53,11 @@ export function Board({ projetoId, limites, cartoes }: { projetoId: string; limi
   const [mensagem, setMensagem] = useState<Mensagem>(null);
   const [arrastando, setArrastando] = useState<string | null>(null);
   const [alvo, setAlvo] = useState<Coluna | null>(null);
+  // Pop-ups: criar cartão (com a coluna escolhida) e detalhe do cartão clicado.
+  const [criarEm, setCriarEm] = useState<Coluna | null>(null);
+  const [detalheId, setDetalheId] = useState<string | null>(null);
+  const detalhe = detalheId ? cartoes.find((c) => c.id === detalheId) ?? null : null;
+  const emVotacao = new Set(votacoes.filter((v) => v.situacao !== "encerrada" && v.cartaoId).map((v) => v.cartaoId));
 
   function mover(cartao: Cartao, para: Coluna) {
     if (cartao.coluna === para) return;
@@ -80,6 +96,12 @@ export function Board({ projetoId, limites, cartoes }: { projetoId: string; limi
 
   return (
     <section aria-label="Board" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onClick={() => setCriarEm("Backlog")} className={BOTAO_PRINCIPAL}>
+          <span aria-hidden="true">+</span> Novo cartão
+        </button>
+        <p className="text-xs text-zinc-500">Clique no título de um cartão para ver o detalhe, a descrição e o checklist.</p>
+      </div>
       <p
         role="status"
         aria-live="polite"
@@ -95,7 +117,7 @@ export function Board({ projetoId, limites, cartoes }: { projetoId: string; limi
       </p>
 
       <div className="-mx-4 overflow-x-auto px-4 pb-2">
-        <ol className="grid min-w-max grid-flow-col auto-cols-[16.5rem] gap-4 xl:min-w-0 xl:auto-cols-fr">
+        <ol className="grid min-w-max grid-flow-col auto-cols-[18rem] gap-4 xl:min-w-0 xl:auto-cols-fr">
           {COLUNAS.map((coluna) => {
             const daColuna = visiveis.filter((c) => c.coluna === coluna);
             const limite = limiteDaColuna(coluna, limites);
@@ -125,6 +147,15 @@ export function Board({ projetoId, limites, cartoes }: { projetoId: string; limi
                       <span aria-hidden="true" className={`size-2.5 rounded-full ${COR_DA_COLUNA[coluna]}`} />
                       {coluna}
                     </h3>
+                    <button
+                      type="button"
+                      onClick={() => setCriarEm(coluna)}
+                      className="ml-auto rounded-md px-1.5 text-base leading-none text-zinc-500 hover:bg-white hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:hover:bg-zinc-800 dark:hover:text-indigo-300"
+                      aria-label={`Novo cartão em ${coluna}`}
+                      title={`Novo cartão em ${coluna}`}
+                    >
+                      +
+                    </button>
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${estilo.selo}`}
                       title={limite === null ? "Cartões na coluna" : `Cartões na coluna e limite de WIP`}
@@ -143,9 +174,7 @@ export function Board({ projetoId, limites, cartoes }: { projetoId: string; limi
                   </p>
                 </header>
 
-                {coluna === "Backlog" && <NovoCartao projetoId={projetoId} />}
-
-                <ul className="flex flex-1 flex-col gap-2">
+                <ul className="flex flex-1 flex-col gap-2.5">
                   {daColuna.map((cartao) => (
                     <CartaoNoBoard
                       key={cartao.id}
@@ -154,6 +183,8 @@ export function Board({ projetoId, limites, cartoes }: { projetoId: string; limi
                       arrastado={arrastando === cartao.id}
                       onArrastar={setArrastando}
                       onMover={mover}
+                      onAbrir={() => setDetalheId(cartao.id)}
+                      emVotacao={emVotacao.has(cartao.id)}
                     />
                   ))}
                   {daColuna.length === 0 && (
@@ -170,6 +201,19 @@ export function Board({ projetoId, limites, cartoes }: { projetoId: string; limi
       <p className="text-xs text-zinc-500">
         Dica: arraste os cartões entre as colunas ou use os botões Voltar e Avançar (também pelo teclado, com Tab e Enter).
       </p>
+
+      <NovoCartao
+        projetoId={projetoId}
+        coluna={criarEm}
+        onFechar={() => setCriarEm(null)}
+        onCriado={(texto) => setMensagem({ tipo: "ok", texto })}
+      />
+      <DetalheCartao
+        projetoId={projetoId}
+        cartao={detalhe}
+        emVotacao={detalhe ? emVotacao.has(detalhe.id) : false}
+        onFechar={() => setDetalheId(null)}
+      />
     </section>
   );
 }
@@ -180,25 +224,22 @@ function CartaoNoBoard({
   arrastado,
   onArrastar,
   onMover,
+  onAbrir,
+  emVotacao,
 }: {
   cartao: Cartao;
   ocupado: boolean;
   arrastado: boolean;
   onArrastar: (id: string | null) => void;
   onMover: (cartao: Cartao, para: Coluna) => void;
+  onAbrir: () => void;
+  emVotacao: boolean;
 }) {
-  const [editando, setEditando] = useState(false);
   const anterior = colunaAnterior(cartao.coluna);
   const proxima = proximaColuna(cartao.coluna);
   const concluido = cartao.coluna === "Concluído";
-
-  if (editando) {
-    return (
-      <li className="rounded-lg border border-indigo-300 bg-white p-3 shadow-sm dark:border-indigo-500/60 dark:bg-zinc-950">
-        <EditarCartao cartao={cartao} onFechar={() => setEditando(false)} />
-      </li>
-    );
-  }
+  const feitos = cartao.checklist.filter((i) => i.feito).length;
+  const total = cartao.checklist.length;
 
   return (
     <li
@@ -209,32 +250,53 @@ function CartaoNoBoard({
         onArrastar(cartao.id);
       }}
       onDragEnd={() => onArrastar(null)}
-      className={`group flex cursor-grab flex-col gap-3 rounded-lg border bg-white p-3 shadow-sm transition active:cursor-grabbing dark:bg-zinc-950 ${
+      className={`group flex cursor-grab flex-col gap-3 rounded-lg border bg-white p-3.5 shadow-sm transition active:cursor-grabbing dark:bg-zinc-950 ${
         concluido ? "border-emerald-200 dark:border-emerald-500/30" : "border-zinc-200 dark:border-zinc-800"
       } ${arrastado ? "opacity-40" : "hover:border-indigo-300 hover:shadow dark:hover:border-indigo-500/50"}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className={`text-sm font-medium leading-snug break-words ${concluido ? "text-zinc-500 line-through decoration-emerald-500/60" : ""}`}>
+        <button
+          type="button"
+          onClick={onAbrir}
+          className={`text-left text-sm font-medium leading-snug break-words hover:text-indigo-700 hover:underline focus-visible:outline-2 focus-visible:outline-indigo-600 dark:hover:text-indigo-300 ${
+            concluido ? "text-zinc-500 line-through decoration-emerald-500/60" : ""
+          }`}
+          aria-label={`Abrir o detalhe de "${cartao.titulo}"`}
+        >
           {cartao.titulo}
-        </p>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setEditando(true)}
-            className="rounded px-1 text-xs text-zinc-500 hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:hover:text-indigo-300"
-            aria-label={`Editar "${cartao.titulo}"`}
-          >
-            Editar
-          </button>
-          <span
-            className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
-            title={`${cartao.pontos} pontos`}
-          >
-            {cartao.pontos}
-            <span className="sr-only"> pontos</span>
-          </span>
-        </div>
+        </button>
+        <span
+          className="shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+          title={`${cartao.pontos} pontos`}
+        >
+          {cartao.pontos}
+          <span className="sr-only"> pontos</span>
+        </span>
       </div>
+
+      {(cartao.descricao || total > 0 || emVotacao) && (
+        <ul className="flex flex-wrap gap-1.5 text-xs text-zinc-500" aria-label="Resumo do cartão">
+          {cartao.descricao && (
+            <li className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800" title="Tem descrição">
+              <span aria-hidden="true">≡</span> Descrição
+            </li>
+          )}
+          {total > 0 && (
+            <li
+              className={`rounded px-1.5 py-0.5 tabular-nums ${
+                feitos === total ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" : "bg-zinc-100 dark:bg-zinc-800"
+              }`}
+              title="Itens do checklist feitos"
+            >
+              <span aria-hidden="true">☑</span> {feitos}/{total}
+            </li>
+          )}
+          {emVotacao && (
+            <li className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Em votação</li>
+          )}
+        </ul>
+      )}
+
       <div className="flex flex-wrap items-center gap-1.5">
         {anterior && (
           <button
@@ -260,123 +322,5 @@ function CartaoNoBoard({
         )}
       </div>
     </li>
-  );
-}
-
-function SeletorDePontos({ id, padrao, erro }: { id: string; padrao: string; erro?: string }) {
-  return (
-    <select
-      id={id}
-      name="pontos"
-      defaultValue={padrao}
-      aria-invalid={erro ? true : undefined}
-      aria-describedby={erro ? `${id}-erro` : undefined}
-      className={`${CAMPO} w-20`}
-    >
-      {PONTOS_VALIDOS.map((p) => (
-        <option key={p} value={p}>
-          {p}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function Erro({ id, texto }: { id: string; texto?: string }) {
-  if (!texto) return null;
-  return (
-    <p id={id} className="text-xs text-red-700 dark:text-red-400">
-      {texto}
-    </p>
-  );
-}
-
-function NovoCartao({ projetoId }: { projetoId: string }) {
-  const [estado, acao, enviando] = useActionState(criarCartao, ESTADO_INICIAL);
-
-  return (
-    <form
-      key={estado.versao ?? 0}
-      action={acao}
-      noValidate
-      className="flex flex-col gap-2 rounded-lg border border-dashed border-zinc-300 bg-white/60 p-2.5 dark:border-zinc-700 dark:bg-zinc-950/40"
-    >
-      <input type="hidden" name="projeto" value={projetoId} />
-      <label htmlFor="novo-titulo" className="sr-only">
-        Título do novo cartão
-      </label>
-      <input
-        id="novo-titulo"
-        name="titulo"
-        placeholder="Novo cartão…"
-        maxLength={TITULO_MAXIMO}
-        defaultValue={estado.erros || estado.mensagem ? estado.valores?.titulo : undefined}
-        aria-invalid={estado.erros?.titulo ? true : undefined}
-        aria-describedby={estado.erros?.titulo ? "novo-titulo-erro" : undefined}
-        className={CAMPO}
-      />
-      <Erro id="novo-titulo-erro" texto={estado.erros?.titulo} />
-      <div className="flex items-center gap-2">
-        <label htmlFor="novo-pontos" className="text-xs text-zinc-500">
-          Pontos
-        </label>
-        <SeletorDePontos id="novo-pontos" padrao={estado.valores?.pontos || "3"} erro={estado.erros?.pontos} />
-        <button type="submit" disabled={enviando} className={`${BOTAO_PRINCIPAL} ml-auto !px-3 !py-2`}>
-          {enviando ? "Criando…" : "Adicionar"}
-        </button>
-      </div>
-      <Erro id="novo-pontos-erro" texto={estado.erros?.pontos} />
-      {estado.mensagem && <p className="text-xs text-red-700 dark:text-red-400">{estado.mensagem}</p>}
-      {estado.sucesso && (
-        <p role="status" className="text-xs text-emerald-700 dark:text-emerald-400">
-          {estado.sucesso}
-        </p>
-      )}
-    </form>
-  );
-}
-
-function EditarCartao({ cartao, onFechar }: { cartao: Cartao; onFechar: () => void }) {
-  const [estado, acao, enviando] = useActionState(async (anterior: EstadoAcao, form: FormData) => {
-    const r = await editarCartao(anterior, form);
-    if (r.sucesso) onFechar();
-    return r;
-  }, ESTADO_INICIAL);
-  const id = `editar-${cartao.id}`;
-
-  return (
-    <form action={acao} noValidate className="flex flex-col gap-2">
-      <input type="hidden" name="cartao" value={cartao.id} />
-      <label htmlFor={`${id}-titulo`} className="text-xs font-medium">
-        Título
-      </label>
-      <input
-        id={`${id}-titulo`}
-        name="titulo"
-        defaultValue={estado.valores?.titulo ?? cartao.titulo}
-        maxLength={TITULO_MAXIMO}
-        autoFocus
-        aria-invalid={estado.erros?.titulo ? true : undefined}
-        aria-describedby={estado.erros?.titulo ? `${id}-titulo-erro` : undefined}
-        className={CAMPO}
-      />
-      <Erro id={`${id}-titulo-erro`} texto={estado.erros?.titulo} />
-      <div className="flex items-center gap-2">
-        <label htmlFor={`${id}-pontos`} className="text-xs font-medium">
-          Pontos
-        </label>
-        <SeletorDePontos id={`${id}-pontos`} padrao={estado.valores?.pontos ?? String(cartao.pontos)} erro={estado.erros?.pontos} />
-      </div>
-      <Erro id={`${id}-pontos-erro`} texto={estado.erros?.pontos} />
-      {estado.mensagem && <p className="text-xs text-red-700 dark:text-red-400">{estado.mensagem}</p>}
-      <div className="flex gap-2">
-        <button type="submit" disabled={enviando} className={`${BOTAO_PRINCIPAL} !px-3 !py-1.5`}>
-          {enviando ? "Salvando…" : "Salvar"}
-        </button>
-        <button type="button" onClick={onFechar} className={BOTAO_MINI}>
-          Cancelar
-        </button>
-      </div>
-    </form>
   );
 }
