@@ -16,21 +16,24 @@ export const eAba = (v: unknown): v is IdAba => ABAS.some((a) => a.id === v);
 // e o endereço pode ser copiado e enviado ao time já na aba certa.
 export function Abas({ projetoId, atual }: { projetoId: string; atual: IdAba }) {
   return (
-    <nav aria-label="Seções do projeto" className="-mx-4 flex gap-1 overflow-x-auto px-4 border-b border-zinc-200 dark:border-zinc-800">
-      {ABAS.map((a) => (
-        <Link
-          key={a.id}
-          href={`/painel/projetos/${projetoId}?aba=${a.id}`}
-          aria-current={a.id === atual ? "page" : undefined}
-          className={`-mb-px shrink-0 border-b-2 px-4 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-indigo-600 ${
-            a.id === atual
-              ? "border-indigo-600 text-indigo-700 dark:border-indigo-400 dark:text-indigo-300"
-              : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-          }`}
-        >
-          {a.rotulo}
-        </Link>
-      ))}
+    <nav aria-label="Seções do projeto" className="sem-barra -mx-4 overflow-x-auto px-4">
+      <div className="flex w-max gap-1 rounded-xl border border-linha bg-painel p-1">
+        {ABAS.map((a) => {
+          const ativa = a.id === atual;
+          return (
+            <Link
+              key={a.id}
+              href={`/painel/projetos/${projetoId}?aba=${a.id}`}
+              aria-current={ativa ? "page" : undefined}
+              className={`relative rounded-lg px-4 py-1.5 text-sm font-medium transition duration-150 ease-suave focus-visible:outline-2 focus-visible:outline-laranja ${
+                ativa ? "bg-elevado text-texto shadow-[inset_0_-2px_0_var(--color-laranja)]" : "text-suave hover:bg-elevado/50 hover:text-texto"
+              }`}
+            >
+              {a.rotulo}
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }

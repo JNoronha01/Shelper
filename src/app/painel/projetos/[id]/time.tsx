@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO } from "@/components/botoes";
+import { Seletor } from "@/components/seletor";
 import type { Convite, Membro } from "@/lib/board/dados";
 import { DIAS_CONVITE, formatarDataHora } from "@/lib/board/regras";
 import { cancelarConvite, gerarConvite, removerMembro } from "../../acoes";
@@ -32,7 +33,7 @@ export function Time({
       {souDono ? (
         <LinkDeConvite projetoId={projetoId} convite={convite} origem={origem} agora={agora} />
       ) : (
-        <p className="h-fit rounded-xl border border-zinc-200 bg-white p-5 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="h-fit rounded-2xl border border-linha bg-painel p-5 text-sm text-suave">
           Para chamar mais alguém, peça o link de convite ao dono do projeto.
         </p>
       )}
@@ -45,28 +46,28 @@ function ListaDeMembros({ projetoId, membros, souDono, meuId }: { projetoId: str
   const [erro, setErro] = useState<string | null>(null);
 
   return (
-    <section aria-labelledby="titulo-membros" className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <section aria-labelledby="titulo-membros" className="rounded-2xl border border-linha bg-painel p-5">
       <h2 id="titulo-membros" className="mb-3 font-semibold">
         Membros ({membros.length})
       </h2>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
-      <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+      <ul className="divide-y divide-linha">
         {membros.map((m) => (
           <li key={m.usuarioId} className="flex flex-wrap items-center gap-3 py-3">
             <span
               aria-hidden="true"
-              className="grid size-9 place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+              className="grid size-9 place-items-center rounded-full border border-linha-forte bg-elevado text-sm font-semibold text-texto"
             >
               {m.nome.trim().charAt(0).toUpperCase() || "?"}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">
                 {m.nome}
-                {m.usuarioId === meuId && <span className="font-normal text-zinc-500"> (você)</span>}
+                {m.usuarioId === meuId && <span className="font-normal text-suave"> (você)</span>}
               </p>
-              <p className="truncate text-xs text-zinc-500">{m.email}</p>
+              <p className="truncate text-xs text-suave">{m.email}</p>
             </div>
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="rounded-full bg-elevado px-2 py-0.5 text-xs text-suave">
               {m.papel === "dono" ? "Dono" : "Membro"}
             </span>
             {souDono && m.papel === "membro" && (
@@ -81,7 +82,7 @@ function ListaDeMembros({ projetoId, membros, souDono, meuId }: { projetoId: str
                     if (!r.ok) setErro(r.mensagem);
                   });
                 }}
-                className={`${BOTAO_MINI} hover:!border-red-300 hover:!bg-red-50 hover:!text-red-700 dark:hover:!bg-red-500/10 dark:hover:!text-red-300`}
+                className={`${BOTAO_MINI} hover:!border-perigo/50 hover:!bg-perigo/10 hover:!text-perigo`}
               >
                 Remover
               </button>
@@ -101,11 +102,11 @@ function LinkDeConvite({ projetoId, convite, origem, agora }: { projetoId: strin
   const expirado = convite ? convite.expiraEm < agora : false;
 
   return (
-    <section aria-labelledby="titulo-convite" className="flex h-fit flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <section aria-labelledby="titulo-convite" className="flex h-fit flex-col gap-4 rounded-2xl border border-linha bg-painel p-5">
       <h2 id="titulo-convite" className="font-semibold">
         Link de convite
       </h2>
-      <p className="text-sm text-zinc-500">Quem abrir o link (com conta no Shelper) entra no projeto como membro.</p>
+      <p className="text-sm text-suave">Quem abrir o link (com conta no Shelper) entra no projeto como membro.</p>
 
       {link && (
         <div className="flex flex-col gap-2">
@@ -113,7 +114,7 @@ function LinkDeConvite({ projetoId, convite, origem, agora }: { projetoId: strin
             Link de convite
           </label>
           <input id="link-convite" readOnly value={link} onFocus={(e) => e.target.select()} className={`${CAMPO} font-mono text-xs`} />
-          <p className={`text-xs ${expirado ? "text-red-700 dark:text-red-400" : "text-zinc-500"}`}>
+          <p className={`text-xs ${expirado ? "text-perigo" : "text-suave"}`}>
             {expirado ? "Expirou em " : "Vale até "}
             {formatarDataHora(convite!.expiraEm)}
           </p>
@@ -142,19 +143,19 @@ function LinkDeConvite({ projetoId, convite, origem, agora }: { projetoId: strin
         </div>
       )}
 
-      <form action={acao} className="flex flex-wrap items-end gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <form action={acao} className="flex flex-wrap items-end gap-2 border-t border-linha pt-4">
         <input type="hidden" name="projeto" value={projetoId} />
         <div className="flex flex-col gap-1">
           <label htmlFor="dias-convite" className="text-sm font-medium">
             Validade
           </label>
-          <select id="dias-convite" name="dias" defaultValue="7" className={CAMPO}>
-            {DIAS_CONVITE.map((d) => (
-              <option key={d} value={d}>
-                {d} {d === 1 ? "dia" : "dias"}
-              </option>
-            ))}
-          </select>
+          <Seletor
+            id="dias-convite"
+            name="dias"
+            padrao="7"
+            opcoes={DIAS_CONVITE.map((d) => ({ valor: String(d), rotulo: `${d} ${d === 1 ? "dia" : "dias"}` }))}
+            className="w-32"
+          />
         </div>
         <button type="submit" disabled={enviando} className={link ? BOTAO_SECUNDARIO : BOTAO_PRINCIPAL}>
           {enviando ? "Gerando…" : link ? "Gerar link novo" : "Gerar link"}

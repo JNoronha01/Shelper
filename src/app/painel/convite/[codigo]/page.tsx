@@ -21,7 +21,7 @@ type Props = PageProps<"/painel/convite/[codigo]">;
 export default function PaginaConvite({ params }: Props) {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-16">
-      <Suspense fallback={<p className="text-center text-zinc-500">Abrindo o convite…</p>}>
+      <Suspense fallback={<p className="text-center text-suave">Abrindo o convite…</p>}>
         <Conteudo params={params} />
       </Suspense>
     </main>
@@ -40,12 +40,12 @@ async function Conteudo({ params }: Pick<Props, "params">) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="flex flex-col gap-4 rounded-2xl border border-linha bg-cartao p-6 shadow-sm">
         {situacao.status === "valido" && (
           <>
             <h1 className="text-2xl font-bold tracking-tight">Convite para um projeto</h1>
-            <p className="text-zinc-600 dark:text-zinc-400">
-              Você foi convidado para o projeto <strong className="text-zinc-900 dark:text-zinc-100">{situacao.projeto}</strong>. Ao
+            <p className="text-suave">
+              Você foi convidado para o projeto <strong className="text-texto">{situacao.projeto}</strong>. Ao
               entrar, você vê o board e pode criar e mover cartões.
             </p>
             <AceitarConvite codigo={codigo} />
@@ -54,7 +54,7 @@ async function Conteudo({ params }: Pick<Props, "params">) {
         {situacao.status === "ja_membro" && (
           <>
             <h1 className="text-2xl font-bold tracking-tight">Você já está neste projeto</h1>
-            <p className="text-zinc-600 dark:text-zinc-400">{situacao.projeto}</p>
+            <p className="text-suave">{situacao.projeto}</p>
             <Link href={`/painel/projetos/${situacao.projeto_id}`} className={BOTAO_PRINCIPAL}>
               Abrir o board
             </Link>
@@ -65,7 +65,7 @@ async function Conteudo({ params }: Pick<Props, "params">) {
             <h1 className="text-2xl font-bold tracking-tight">
               {situacao.status === "expirado" ? "Este convite expirou" : "Convite inválido"}
             </h1>
-            <p className="text-zinc-600 dark:text-zinc-400">
+            <p className="text-suave">
               Peça um link novo ao dono do projeto. O dono gera o link na aba <strong>Time</strong> do projeto.
             </p>
             <Link href="/painel" className={BOTAO_SECUNDARIO}>

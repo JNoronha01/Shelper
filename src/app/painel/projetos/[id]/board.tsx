@@ -1,7 +1,9 @@
 "use client";
 
 import { useOptimistic, useState, useTransition, type DragEvent } from "react";
-import { BOTAO_MINI, BOTAO_PRINCIPAL } from "@/components/botoes";
+import { useAvisar } from "@/components/avisos";
+import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
+import { Modal } from "@/components/modal";
 import type { Cartao, Votacao } from "@/lib/board/dados";
 import { limiteDaColuna, situacaoWip, type LimitesWip, type SituacaoWip } from "@/lib/board/regras";
 import { COLUNAS, colunaAnterior, proximaColuna, type Coluna } from "@/lib/colunas";
@@ -9,30 +11,24 @@ import { moverCartao } from "../../acoes";
 import { DetalheCartao } from "./detalhe-cartao";
 import { NovoCartao } from "./novo-cartao";
 
+// Cor só no que importa: "Em andamento" é onde o trabalho acontece (laranja);
+// "Concluído" fecha o fluxo (verde fechado). As outras colunas ficam neutras.
 const COR_DA_COLUNA: Record<Coluna, string> = {
-  Backlog: "bg-zinc-400",
-  "A fazer": "bg-sky-500",
-  "Em andamento": "bg-indigo-500",
-  "Em revisão": "bg-amber-500",
-  Concluído: "bg-emerald-500",
+  Backlog: "bg-fraco",
+  "A fazer": "bg-suave",
+  "Em andamento": "bg-laranja",
+  "Em revisão": "bg-texto/70",
+  Concluído: "bg-bom",
 };
 
 const ESTILO_WIP: Record<SituacaoWip, { borda: string; selo: string; texto: string | null }> = {
-  sem_limite: { borda: "border-zinc-200 dark:border-zinc-800", selo: "bg-zinc-200/70 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300", texto: null },
-  livre: { borda: "border-zinc-200 dark:border-zinc-800", selo: "bg-zinc-200/70 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300", texto: null },
-  no_limite: {
-    borda: "border-amber-400 dark:border-amber-500/70",
-    selo: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
-    texto: "No limite de WIP",
-  },
-  acima: {
-    borda: "border-red-400 dark:border-red-500/70",
-    selo: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
-    texto: "Acima do limite de WIP",
-  },
+  sem_limite: { borda: "border-linha", selo: "bg-elevado text-suave", texto: null },
+  livre: { borda: "border-linha", selo: "bg-elevado text-suave", texto: null },
+  no_limite: { borda: "border-aviso/50", selo: "bg-aviso/15 text-aviso", texto: "No limite de WIP" },
+  acima: { borda: "border-perigo/50", selo: "bg-perigo/15 text-perigo", texto: "Acima do limite de WIP" },
 };
 
-type Mensagem = { tipo: "ok" | "erro" | "info"; texto: string } | null;
+type Pendente = { cartao: Cartao; para: Coluna; limite: number; ocupados: number };
 
 export function Board({
   projetoId,
@@ -50,37 +46,26 @@ export function Board({
     atual.map((c) => (c.id === m.id ? { ...c, coluna: m.para } : c)),
   );
   const [movendo, iniciar] = useTransition();
-  const [mensagem, setMensagem] = useState<Mensagem>(null);
+  const avisar = useAvisar();
   const [arrastando, setArrastando] = useState<string | null>(null);
   const [alvo, setAlvo] = useState<Coluna | null>(null);
-  // Pop-ups: criar cartão (com a coluna escolhida) e detalhe do cartão clicado.
+  // Pop-ups: criar cartão (com a coluna escolhida), detalhe do cartão e confirmação de WIP.
   const [criarEm, setCriarEm] = useState<Coluna | null>(null);
   const [detalheId, setDetalheId] = useState<string | null>(null);
+  const [pendente, setPendente] = useState<Pendente | null>(null);
   const detalhe = detalheId ? cartoes.find((c) => c.id === detalheId) ?? null : null;
   const emVotacao = new Set(votacoes.filter((v) => v.situacao !== "encerrada" && v.cartaoId).map((v) => v.cartaoId));
 
-  function mover(cartao: Cartao, para: Coluna) {
+  function mover(cartao: Cartao, para: Coluna, confirmarWip = false) {
     if (cartao.coluna === para) return;
     iniciar(async () => {
       moverNaTela({ id: cartao.id, para });
-      let r = await moverCartao({ cartao: cartao.id, para, confirmarWip: false });
-      if (r.status === "wip") {
-        const confirmou = window.confirm(
-          `A coluna "${r.coluna}" está no limite de WIP (${r.ocupados} de ${r.limite}).\n\n` +
-            `Mover "${cartao.titulo}" mesmo assim? O evento ficará marcado como acima do limite.`,
-        );
-        if (!confirmou) {
-          setMensagem({ tipo: "info", texto: `Movimentação cancelada: "${r.coluna}" está no limite de WIP.` });
-          return;
-        }
-        r = await moverCartao({ cartao: cartao.id, para, confirmarWip: true });
-      }
-      if (r.status === "erro") setMensagem({ tipo: "erro", texto: r.mensagem });
+      const r = await moverCartao({ cartao: cartao.id, para, confirmarWip });
+      // Coluna cheia: o cartão volta para o lugar e a tela pergunta antes de passar do limite.
+      if (r.status === "wip") setPendente({ cartao, para, limite: r.limite, ocupados: r.ocupados });
+      else if (r.status === "erro") avisar(r.mensagem, "erro");
       else if (r.status === "ok") {
-        setMensagem({
-          tipo: r.acimaDoWip ? "info" : "ok",
-          texto: `"${cartao.titulo}" foi para ${para}${r.acimaDoWip ? ", acima do limite de WIP" : ""}.`,
-        });
+        avisar(`"${cartao.titulo}" foi para ${para}${r.acimaDoWip ? ", acima do limite de WIP" : ""}.`, r.acimaDoWip ? "info" : "ok");
       }
     });
   }
@@ -95,29 +80,18 @@ export function Board({
   }
 
   return (
-    <section aria-label="Board" className="flex flex-col gap-3">
+    <section aria-label="Board" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={() => setCriarEm("Backlog")} className={BOTAO_PRINCIPAL}>
-          <span aria-hidden="true">+</span> Novo cartão
+          <span aria-hidden="true" className="text-base leading-none">+</span> Novo cartão
         </button>
-        <p className="text-xs text-zinc-500">Clique no título de um cartão para ver o detalhe, a descrição e o checklist.</p>
+        <p className="text-sm text-suave">
+          {movendo ? "Gravando…" : "Arraste os cartões entre as colunas. Clique no título para abrir o detalhe."}
+        </p>
       </div>
-      <p
-        role="status"
-        aria-live="polite"
-        className={`min-h-6 text-sm ${
-          mensagem?.tipo === "erro"
-            ? "text-red-700 dark:text-red-400"
-            : mensagem?.tipo === "info"
-              ? "text-amber-700 dark:text-amber-300"
-              : "text-emerald-700 dark:text-emerald-400"
-        }`}
-      >
-        {movendo ? "Gravando movimentação…" : mensagem?.texto}
-      </p>
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-2">
-        <ol className="grid min-w-max grid-flow-col auto-cols-[18rem] gap-4 xl:min-w-0 xl:auto-cols-fr">
+      <div className="sem-barra -mx-4 overflow-x-auto px-4 pb-2">
+        <ol className="grid min-w-max grid-flow-col auto-cols-[17.5rem] gap-3 xl:min-w-0 xl:auto-cols-fr">
           {COLUNAS.map((coluna) => {
             const daColuna = visiveis.filter((c) => c.coluna === coluna);
             const limite = limiteDaColuna(coluna, limites);
@@ -125,6 +99,7 @@ export function Board({
             const estilo = ESTILO_WIP[situacao];
             const pontos = daColuna.reduce((s, c) => s + c.pontos, 0);
             const idTitulo = `coluna-${COLUNAS.indexOf(coluna)}`;
+            const ehAlvo = alvo === coluna && arrastando !== null;
             return (
               <li
                 key={coluna}
@@ -137,44 +112,33 @@ export function Board({
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setAlvo(null);
                 }}
                 onDrop={(e) => soltar(e, coluna)}
-                className={`flex min-h-80 flex-col gap-3 rounded-xl border-2 bg-zinc-100/70 p-3 transition-colors dark:bg-zinc-900/60 ${estilo.borda} ${
-                  alvo === coluna && arrastando ? "!border-indigo-400 bg-indigo-50/70 dark:bg-indigo-500/10" : ""
+                className={`flex min-h-[22rem] flex-col gap-3 rounded-coluna border bg-painel p-2.5 transition duration-200 ease-suave ${estilo.borda} ${
+                  ehAlvo ? "!border-laranja/70 bg-laranja/[0.04] ring-4 ring-laranja/10" : ""
                 }`}
               >
-                <header className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 id={idTitulo} className="flex items-center gap-2 text-sm font-semibold">
-                      <span aria-hidden="true" className={`size-2.5 rounded-full ${COR_DA_COLUNA[coluna]}`} />
+                <header className="flex flex-col gap-0.5 px-1.5 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span aria-hidden="true" className={`size-2 rounded-full ${COR_DA_COLUNA[coluna]}`} />
+                    <h3 id={idTitulo} className="text-sm font-semibold">
                       {coluna}
                     </h3>
-                    <button
-                      type="button"
-                      onClick={() => setCriarEm(coluna)}
-                      className="ml-auto rounded-md px-1.5 text-base leading-none text-zinc-500 hover:bg-white hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:hover:bg-zinc-800 dark:hover:text-indigo-300"
-                      aria-label={`Novo cartão em ${coluna}`}
-                      title={`Novo cartão em ${coluna}`}
-                    >
-                      +
-                    </button>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${estilo.selo}`}
-                      title={limite === null ? "Cartões na coluna" : `Cartões na coluna e limite de WIP`}
+                      className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums transition-colors ${estilo.selo}`}
+                      title={limite === null ? "Cartões na coluna" : "Cartões na coluna / limite de WIP"}
                     >
                       {limite === null ? daColuna.length : `${daColuna.length}/${limite}`}
                       <span className="sr-only">{limite === null ? " cartões" : ` cartões, limite ${limite}`}</span>
                     </span>
                   </div>
-                  <p className="text-xs text-zinc-500">
+                  <p className="pl-4 text-xs text-suave">
                     {pontos} {pontos === 1 ? "ponto" : "pontos"}
                     {estilo.texto && (
-                      <strong className={`ml-2 font-semibold ${situacao === "acima" ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-300"}`}>
-                        {estilo.texto}
-                      </strong>
+                      <span className={`ml-1.5 font-medium ${situacao === "acima" ? "text-perigo" : "text-aviso"}`}>· {estilo.texto}</span>
                     )}
                   </p>
                 </header>
 
-                <ul className="flex flex-1 flex-col gap-2.5">
+                <ul className="flex flex-col gap-2">
                   {daColuna.map((cartao) => (
                     <CartaoNoBoard
                       key={cartao.id}
@@ -187,33 +151,59 @@ export function Board({
                       emVotacao={emVotacao.has(cartao.id)}
                     />
                   ))}
-                  {daColuna.length === 0 && (
-                    <li className="grid flex-1 place-items-center rounded-lg border border-dashed border-zinc-300 px-3 py-6 text-center text-xs text-zinc-500 dark:border-zinc-700">
-                      Arraste um cartão para cá
-                    </li>
-                  )}
                 </ul>
+
+                <button
+                  type="button"
+                  onClick={() => setCriarEm(coluna)}
+                  className={`mt-auto flex items-center gap-2 rounded-cartao px-2.5 py-2 text-left text-sm text-fraco transition duration-150 ease-suave hover:bg-elevado hover:text-texto focus-visible:outline-2 focus-visible:outline-laranja ${
+                    daColuna.length === 0 ? "border border-dashed border-linha-forte" : ""
+                  }`}
+                  aria-label={`Adicionar cartão em ${coluna}`}
+                >
+                  <span aria-hidden="true" className="text-base leading-none">+</span>
+                  {daColuna.length === 0 ? "Adicionar ou soltar aqui" : "Adicionar cartão"}
+                </button>
               </li>
             );
           })}
         </ol>
       </div>
-      <p className="text-xs text-zinc-500">
-        Dica: arraste os cartões entre as colunas ou use os botões Voltar e Avançar (também pelo teclado, com Tab e Enter).
-      </p>
 
-      <NovoCartao
-        projetoId={projetoId}
-        coluna={criarEm}
-        onFechar={() => setCriarEm(null)}
-        onCriado={(texto) => setMensagem({ tipo: "ok", texto })}
-      />
+      <NovoCartao projetoId={projetoId} coluna={criarEm} onFechar={() => setCriarEm(null)} onCriado={(texto) => avisar(texto)} />
       <DetalheCartao
         projetoId={projetoId}
         cartao={detalhe}
         emVotacao={detalhe ? emVotacao.has(detalhe.id) : false}
         onFechar={() => setDetalheId(null)}
       />
+      <Modal aberto={pendente !== null} onFechar={() => setPendente(null)} titulo="Coluna no limite de WIP">
+        {pendente && (
+          <div className="flex flex-col gap-5">
+            <p className="text-sm leading-relaxed text-suave">
+              <strong className="font-medium text-texto">{pendente.para}</strong> já tem {pendente.ocupados} de {pendente.limite} cartões.
+              Mover <strong className="font-medium text-texto">&ldquo;{pendente.cartao.titulo}&rdquo;</strong> mesmo assim? O evento fica
+              marcado como acima do limite e aparece nas métricas.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setPendente(null)} className={BOTAO_SECUNDARIO} autoFocus>
+                Não mover
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = pendente;
+                  setPendente(null);
+                  mover(p.cartao, p.para, true);
+                }}
+                className={BOTAO_PRINCIPAL}
+              >
+                Mover mesmo assim
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </section>
   );
 }
@@ -250,23 +240,23 @@ function CartaoNoBoard({
         onArrastar(cartao.id);
       }}
       onDragEnd={() => onArrastar(null)}
-      className={`group flex cursor-grab flex-col gap-3 rounded-lg border bg-white p-3.5 shadow-sm transition active:cursor-grabbing dark:bg-zinc-950 ${
-        concluido ? "border-emerald-200 dark:border-emerald-500/30" : "border-zinc-200 dark:border-zinc-800"
-      } ${arrastado ? "opacity-40" : "hover:border-indigo-300 hover:shadow dark:hover:border-indigo-500/50"}`}
+      className={`pousar group flex cursor-grab flex-col gap-2.5 rounded-cartao border bg-cartao p-3 transition duration-150 ease-suave active:cursor-grabbing ${
+        concluido ? "border-linha/60 bg-cartao/60" : "border-linha"
+      } ${arrastado ? "scale-[0.98] opacity-40" : "hover:-translate-y-px hover:border-linha-forte hover:shadow-[0_8px_20px_-12px_rgb(0_0_0/0.9)]"}`}
     >
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
           onClick={onAbrir}
-          className={`text-left text-sm font-medium leading-snug break-words hover:text-indigo-700 hover:underline focus-visible:outline-2 focus-visible:outline-indigo-600 dark:hover:text-indigo-300 ${
-            concluido ? "text-zinc-500 line-through decoration-emerald-500/60" : ""
+          className={`rounded text-left text-sm font-medium leading-snug break-words transition-colors hover:text-laranja-claro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-laranja ${
+            concluido ? "text-suave line-through decoration-bom/50" : ""
           }`}
           aria-label={`Abrir o detalhe de "${cartao.titulo}"`}
         >
           {cartao.titulo}
         </button>
         <span
-          className="shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+          className="shrink-0 rounded-md bg-elevado px-1.5 py-0.5 text-xs font-semibold tabular-nums text-texto"
           title={`${cartao.pontos} pontos`}
         >
           {cartao.pontos}
@@ -275,29 +265,36 @@ function CartaoNoBoard({
       </div>
 
       {(cartao.descricao || total > 0 || emVotacao) && (
-        <ul className="flex flex-wrap gap-1.5 text-xs text-zinc-500" aria-label="Resumo do cartão">
+        <ul className="flex flex-wrap gap-1.5 text-[11px] font-medium text-suave" aria-label="Resumo do cartão">
           {cartao.descricao && (
-            <li className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800" title="Tem descrição">
-              <span aria-hidden="true">≡</span> Descrição
+            <li className="rounded-md bg-elevado/70 px-1.5 py-0.5" title="Tem descrição">
+              <svg viewBox="0 0 16 16" aria-hidden="true" className="mr-1 inline size-3 align-[-1px]">
+                <path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              Descrição
             </li>
           )}
           {total > 0 && (
             <li
-              className={`rounded px-1.5 py-0.5 tabular-nums ${
-                feitos === total ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" : "bg-zinc-100 dark:bg-zinc-800"
+              className={`rounded-md px-1.5 py-0.5 tabular-nums ${
+                feitos === total ? "bg-bom/15 text-bom" : "bg-elevado/70"
               }`}
               title="Itens do checklist feitos"
             >
-              <span aria-hidden="true">☑</span> {feitos}/{total}
+              <svg viewBox="0 0 16 16" aria-hidden="true" className="mr-1 inline size-3 align-[-1px]">
+                <rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M5 8.2l2 2 4-4.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {feitos}/{total}
             </li>
           )}
           {emVotacao && (
-            <li className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">Em votação</li>
+            <li className="rounded-md bg-laranja/10 px-1.5 py-0.5 text-laranja-claro">Em votação</li>
           )}
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5 transition-opacity duration-150 md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
         {anterior && (
           <button
             type="button"

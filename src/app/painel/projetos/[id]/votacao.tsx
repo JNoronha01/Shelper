@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
-import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO } from "@/components/botoes";
+import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
+import { Seletor } from "@/components/seletor";
 import type { Cartao, Votacao, Voto } from "@/lib/board/dados";
 import { formatarDataHora, resumoDosVotos, valoresDaVotacao, type LimitesWip, type TipoVotacao } from "@/lib/board/regras";
 import { abrirVotacao, cancelarVotacao, encerrarVotacao, novaRodada, revelarVotacao, votar } from "../../acoes";
@@ -48,7 +49,7 @@ export function Votacoes({ projetoId, votacoes, votos, cartoes, totalMembros, me
       <div className="flex flex-col gap-4">
         <h2 className="font-semibold">Em andamento</h2>
         {ativas.length === 0 && (
-          <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+          <p className="rounded-xl border border-dashed border-linha-forte p-6 text-center text-sm text-suave">
             Nenhuma votação aberta. Abra uma ao lado, ou pelo detalhe de um cartão.
           </p>
         )}
@@ -74,7 +75,7 @@ export function Votacoes({ projetoId, votacoes, votos, cartoes, totalMembros, me
       <div className="flex flex-col gap-6">
         <NovaVotacao projetoId={projetoId} cartoes={cartoes} ativas={ativas} />
         {encerradas.length > 0 && (
-          <section aria-labelledby="titulo-decididas" className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <section aria-labelledby="titulo-decididas" className="rounded-2xl border border-linha bg-painel p-5">
             <h2 id="titulo-decididas" className="mb-3 font-semibold">
               Decididas
             </h2>
@@ -118,11 +119,11 @@ function PainelVotacao({
   const escolhido = final || String(resumo?.sugestao ?? "");
 
   return (
-    <article className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <article className="flex flex-col gap-4 rounded-2xl border border-linha bg-painel p-5 shadow-sm">
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold break-words">{titulo}</h3>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-suave">
             Aberta em {formatarDataHora(votacao.criadoEm)}
             {atual !== null && ` · valor atual: ${atual}`}
           </p>
@@ -130,8 +131,8 @@ function PainelVotacao({
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
             revelada
-              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
-              : "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+              ? "bg-bom/15 text-bom"
+              : "bg-aviso/15 text-aviso"
           }`}
         >
           {revelada ? "Votos revelados" : `${votos.length} de ${totalMembros} votaram`}
@@ -151,10 +152,10 @@ function PainelVotacao({
                 disabled={ocupado}
                 aria-pressed={meu === valor}
                 onClick={() => executar(() => votar(votacao.id, tipo, valor))}
-                className={`h-14 w-11 rounded-lg border-2 text-sm font-bold tabular-nums transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-60 ${
+                className={`h-14 w-11 rounded-xl border text-sm font-semibold tabular-nums transition duration-150 ease-suave focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-laranja disabled:opacity-60 ${
                   meu === valor
-                    ? "-translate-y-1 border-indigo-600 bg-indigo-600 text-white shadow-md dark:border-indigo-400 dark:bg-indigo-500"
-                    : "border-zinc-300 bg-white hover:-translate-y-0.5 hover:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-950"
+                    ? "-translate-y-1 border-laranja bg-laranja text-sobre-laranja shadow-[0_10px_20px_-10px_var(--color-laranja)]"
+                    : "border-linha-forte bg-cartao hover:-translate-y-0.5 hover:border-fraco hover:bg-elevado"
                 }`}
               >
                 {valor}
@@ -166,11 +167,11 @@ function PainelVotacao({
 
       <ul className="flex flex-wrap gap-2" aria-label="Votos">
         {votos.map((v) => (
-          <li key={v.usuarioId} className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm dark:border-zinc-700">
+          <li key={v.usuarioId} className="flex items-center gap-2 rounded-lg border border-linha px-3 py-1.5 text-sm">
             <span>{v.usuarioId === meuId ? "Você" : v.nome.split(" ")[0]}</span>
             <span
               className={`grid h-7 min-w-6 place-items-center rounded px-1 text-xs font-bold tabular-nums ${
-                v.valor === null ? "bg-zinc-200 text-zinc-500 dark:bg-zinc-800" : "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                v.valor === null ? "bg-elevado text-suave" : "bg-elevado text-texto"
               }`}
             >
               {v.valor === null ? "✓" : v.valor}
@@ -181,9 +182,9 @@ function PainelVotacao({
       </ul>
 
       {resumo && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-suave">
           {resumo.consenso ? (
-            <strong className="text-emerald-700 dark:text-emerald-400">Consenso: {resumo.sugestao}.</strong>
+            <strong className="text-bom">Consenso: {resumo.sugestao}.</strong>
           ) : (
             <>
               Menor {resumo.menor}, maior {resumo.maior}, média {resumo.media.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}. Quem votou
@@ -193,7 +194,7 @@ function PainelVotacao({
         </p>
       )}
 
-      <div className="flex flex-wrap items-end gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="flex flex-wrap items-end gap-2 border-t border-linha pt-4">
         {!revelada ? (
           <button
             type="button"
@@ -209,13 +210,13 @@ function PainelVotacao({
               <label htmlFor={`final-${votacao.id}`} className="text-xs font-medium">
                 Valor final
               </label>
-              <select id={`final-${votacao.id}`} value={escolhido} onChange={(e) => setFinal(e.target.value)} className={`${CAMPO} w-24`}>
-                {baralho.map((valor) => (
-                  <option key={valor} value={valor}>
-                    {valor}
-                  </option>
-                ))}
-              </select>
+              <Seletor
+                id={`final-${votacao.id}`}
+                valor={escolhido}
+                onChange={setFinal}
+                opcoes={baralho.map((v) => ({ valor: String(v), rotulo: String(v) }))}
+                className="w-28"
+              />
             </div>
             <button
               type="button"
@@ -258,7 +259,7 @@ function NovaVotacao({ projetoId, cartoes, ativas }: { projetoId: string; cartoe
   const colunaEscolhida = coluna || colunas[0] || "";
 
   return (
-    <section aria-labelledby="titulo-nova-votacao" className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <section aria-labelledby="titulo-nova-votacao" className="flex flex-col gap-4 rounded-2xl border border-linha bg-painel p-5">
       <h2 id="titulo-nova-votacao" className="font-semibold">
         Abrir votação
       </h2>
@@ -275,8 +276,8 @@ function NovaVotacao({ projetoId, cartoes, ativas }: { projetoId: string; cartoe
             role="radio"
             aria-checked={tipo === id}
             onClick={() => setTipo(id)}
-            className={`rounded-lg border-2 px-3 py-2 text-sm font-medium ${
-              tipo === id ? "border-indigo-600 text-indigo-700 dark:border-indigo-400 dark:text-indigo-300" : "border-zinc-200 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
+            className={`rounded-xl border px-3 py-2 text-sm font-medium transition duration-150 ease-suave ${
+              tipo === id ? "border-linha-forte bg-elevado text-texto" : "border-linha text-suave hover:bg-elevado/50 hover:text-texto"
             }`}
           >
             {rotulo}
@@ -290,32 +291,30 @@ function NovaVotacao({ projetoId, cartoes, ativas }: { projetoId: string; cartoe
             <label htmlFor="votar-cartao" className="text-sm font-medium">
               Cartão
             </label>
-            <select id="votar-cartao" value={cartaoEscolhido} onChange={(e) => setCartao(e.target.value)} className={CAMPO}>
-              {disponiveis.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.titulo} ({c.pontos} pts · {c.coluna})
-                </option>
-              ))}
-            </select>
+            <Seletor
+              id="votar-cartao"
+              valor={cartaoEscolhido}
+              onChange={setCartao}
+              opcoes={disponiveis.map((c) => ({ valor: c.id, rotulo: c.titulo, detalhe: `${c.pontos} pts · ${c.coluna}` }))}
+            />
           </div>
         ) : (
-          <p className="text-sm text-zinc-500">Nenhum cartão disponível para votar.</p>
+          <p className="text-sm text-suave">Nenhum cartão disponível para votar.</p>
         )
       ) : colunas.length ? (
         <div className="flex flex-col gap-1">
           <label htmlFor="votar-coluna" className="text-sm font-medium">
             Coluna
           </label>
-          <select id="votar-coluna" value={colunaEscolhida} onChange={(e) => setColuna(e.target.value)} className={CAMPO}>
-            {colunas.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <Seletor
+            id="votar-coluna"
+            valor={colunaEscolhida}
+            onChange={setColuna}
+            opcoes={colunas.map((c) => ({ valor: c, rotulo: c }))}
+          />
         </div>
       ) : (
-        <p className="text-sm text-zinc-500">As duas colunas já estão em votação.</p>
+        <p className="text-sm text-suave">As duas colunas já estão em votação.</p>
       )}
 
       {erro && <Aviso tipo="erro">{erro}</Aviso>}

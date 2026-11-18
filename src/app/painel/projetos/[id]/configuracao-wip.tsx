@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
-import { BOTAO_SECUNDARIO, CAMPO } from "@/components/botoes";
+import { BOTAO_SECUNDARIO } from "@/components/botoes";
+import { CampoNumero } from "@/components/numero";
 import { WIP_MAXIMO, WIP_MINIMO } from "@/lib/board/regras";
 import { definirLimitesWip } from "../../acoes";
 import { ESTADO_INICIAL } from "../../estado";
@@ -12,14 +13,19 @@ export function ConfiguracaoWip({ projetoId, andamento, revisao }: { projetoId: 
   const [estado, acao, enviando] = useActionState(definirLimitesWip, ESTADO_INICIAL);
 
   return (
-    <details className="group rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-indigo-600">
-        <span className="mr-2 inline-block transition group-open:rotate-90" aria-hidden="true">
-          ▸
+    <details className="group rounded-2xl border border-linha bg-painel transition-colors open:border-linha-forte">
+      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-2.5 text-sm transition-colors marker:hidden hover:bg-elevado/40 focus-visible:outline-2 focus-visible:outline-laranja [&::-webkit-details-marker]:hidden">
+        <svg viewBox="0 0 16 16" aria-hidden="true" className="size-3.5 text-fraco transition-transform duration-200 ease-suave group-open:rotate-90">
+          <path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="font-medium">Limites de WIP</span>
+        <span className="text-suave">
+          Em andamento <strong className="font-semibold text-texto tabular-nums">{andamento}</strong>, Em revisão{" "}
+          <strong className="font-semibold text-texto tabular-nums">{revisao}</strong>
         </span>
-        Limites de WIP: Em andamento {andamento} · Em revisão {revisao}
+        <span className="ml-auto hidden text-xs text-fraco sm:inline">Só o dono altera. O time pode decidir na aba Votação.</span>
       </summary>
-      <form action={acao} className="flex flex-wrap items-end gap-4 border-t border-zinc-200 px-4 py-4 dark:border-zinc-800" noValidate>
+      <form action={acao} className="surgir flex flex-wrap items-end gap-4 border-t border-linha px-4 py-4" noValidate>
         <input type="hidden" name="projeto" value={projetoId} />
         {(
           [
@@ -31,20 +37,17 @@ export function ConfiguracaoWip({ projetoId, andamento, revisao }: { projetoId: 
             <label htmlFor={`wip-${nome}`} className="text-sm font-medium">
               {rotulo}
             </label>
-            <input
+            <CampoNumero
               id={`wip-${nome}`}
               name={nome}
-              type="number"
               min={WIP_MINIMO}
               max={WIP_MAXIMO}
-              required
-              defaultValue={estado.valores?.[nome] ?? valor}
-              aria-invalid={estado.erros?.[nome] ? true : undefined}
-              aria-describedby={estado.erros?.[nome] ? `wip-${nome}-erro` : undefined}
-              className={`${CAMPO} w-28`}
+              padrao={estado.valores?.[nome] ?? valor}
+              invalido={Boolean(estado.erros?.[nome])}
+              descritoPor={estado.erros?.[nome] ? `wip-${nome}-erro` : undefined}
             />
             {estado.erros?.[nome] && (
-              <p id={`wip-${nome}-erro`} className="text-xs text-red-700 dark:text-red-400">
+              <p id={`wip-${nome}-erro`} className="text-xs text-perigo">
                 {estado.erros[nome]}
               </p>
             )}

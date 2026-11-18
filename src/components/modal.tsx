@@ -35,11 +35,11 @@ export function Modal({
         if (e.target === e.currentTarget) onFechar();
       }}
       aria-labelledby="modal-titulo"
-      className={`m-auto w-[calc(100%-2rem)] ${largura} rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/50 backdrop:backdrop-blur-[2px] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100`}
+      className={`m-auto w-[calc(100%-2rem)] ${largura} rounded-2xl border border-linha-forte bg-painel p-0 text-texto shadow-[0_24px_60px_-20px_rgb(0_0_0/0.8)]`}
     >
       {aberto && (
         <div className="flex max-h-[85vh] flex-col">
-          <header className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+          <header className="flex items-start justify-between gap-4 border-b border-linha px-6 py-4">
             <h2 id="modal-titulo" className="text-lg font-semibold leading-snug break-words">
               {titulo}
             </h2>
@@ -47,12 +47,12 @@ export function Modal({
               type="button"
               onClick={onFechar}
               aria-label="Fechar"
-              className="-mr-1 rounded-md px-2 py-1 text-xl leading-none text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              className="-mr-1.5 grid size-8 place-items-center rounded-lg text-xl leading-none text-suave transition hover:bg-elevado hover:text-texto focus-visible:outline-2 focus-visible:outline-laranja"
             >
               ×
             </button>
           </header>
-          <div className="overflow-y-auto px-5 py-4">{children}</div>
+          <div className="overflow-y-auto px-6 py-5">{children}</div>
         </div>
       )}
     </dialog>

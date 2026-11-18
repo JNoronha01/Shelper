@@ -1,26 +1,117 @@
 @import "tailwindcss";
 
+/*
+  Paleta "Grafite e laranja" (só tema escuro).
+  O laranja é a única cor viva: botão principal, aba ativa, foco e o que está selecionado.
+  Aviso (WIP), perigo e "bom" são tons fechados, para informar sem gritar.
+*/
+@theme {
+  --color-fundo: #121212;
+  --color-painel: #181818;
+  --color-cartao: #212121;
+  --color-elevado: #2a2a2a;
+  --color-linha: #2f2f2f;
+  --color-linha-forte: #3d3d3d;
+  --color-texto: #ececec;
+  --color-suave: #a8a8a8;
+  --color-fraco: #7c7c7c;
+  --color-laranja: #ee8436;
+  --color-laranja-claro: #f59b57;
+  --color-sobre-laranja: #1c0f05;
+  --color-aviso: #d9a441;
+  --color-perigo: #e0695c;
+  --color-bom: #8db596;
+
+  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-cartao: 0.75rem;
+  --radius-coluna: 1rem;
+
+  --ease-suave: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-laranja) 35%, transparent);
+}
+
+/* Barras de rolagem discretas (no Windows a padrão é clara e grossa). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-linha-forte) transparent;
+}
+.sem-barra {
+  scrollbar-width: none;
+}
+.sem-barra::-webkit-scrollbar {
+  display: none;
+}
+
+/* Pop-up: entra com fade e um leve zoom; o fundo escurece junto. */
+/* A transição fica só no estado aberto: abrir anima, fechar é imediato. */
+dialog[open] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 180ms var(--ease-suave),
+    transform 180ms var(--ease-suave);
+}
+@starting-style {
+  dialog[open] {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+dialog[open]::backdrop {
+  background: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(2px);
+  transition: background 180ms var(--ease-suave);
+}
+@starting-style {
+  dialog[open]::backdrop {
+    background: rgb(0 0 0 / 0);
+  }
+}
+
+/* Cartão que acabou de chegar numa coluna (criado ou movido) "pousa" no lugar. */
+.pousar {
+  animation: pousar 260ms var(--ease-suave);
+}
+@keyframes pousar {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+
+.surgir {
+  animation: surgir 200ms var(--ease-suave);
+}
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Quem pede menos movimento no sistema não vê as animações. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  dialog,
+  dialog::backdrop {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
 }

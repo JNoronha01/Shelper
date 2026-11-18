@@ -2,7 +2,7 @@
 
 import { useActionState, type ReactNode } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
-import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO } from "@/components/botoes";
+import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO, CAIXA } from "@/components/botoes";
 import type { Cartao, Sprint } from "@/lib/board/dados";
 import { META_SPRINT_MAXIMO } from "@/lib/board/regras";
 import { criarSprint, editarSprint, encerrarSprint, puxarCartoes } from "../../acoes";
@@ -36,7 +36,7 @@ function CampoData({ nome, rotulo, valor, erro }: { nome: string; rotulo: string
         className={CAMPO}
       />
       {erro && (
-        <p id={`sprint-${nome}-erro`} className="text-xs text-red-700 dark:text-red-400">
+        <p id={`sprint-${nome}-erro`} className="text-xs text-perigo">
           {erro}
         </p>
       )}
@@ -48,7 +48,7 @@ function CampoMeta({ valor, erro }: { valor: string; erro?: string }) {
   return (
     <div className="flex basis-full flex-col gap-1">
       <label htmlFor="sprint-meta" className="text-sm font-medium">
-        Meta da Sprint <span className="font-normal text-zinc-500">(opcional)</span>
+        Meta da Sprint <span className="font-normal text-suave">(opcional)</span>
       </label>
       <textarea
         id="sprint-meta"
@@ -59,25 +59,25 @@ function CampoMeta({ valor, erro }: { valor: string; erro?: string }) {
         aria-invalid={erro ? true : undefined}
         className={CAMPO}
       />
-      {erro && <p className="text-xs text-red-700 dark:text-red-400">{erro}</p>}
+      {erro && <p className="text-xs text-perigo">{erro}</p>}
     </div>
   );
 }
 
 function ListaBacklog({ cartoes }: { cartoes: Cartao[] }) {
   if (cartoes.length === 0) {
-    return <p className="basis-full text-sm text-zinc-500">Não há cartões no Backlog para puxar.</p>;
+    return <p className="basis-full text-sm text-suave">Não há cartões no Backlog para puxar.</p>;
   }
   return (
     <fieldset className="basis-full">
       <legend className="mb-1 text-sm font-medium">Cartões do Backlog que entram na Sprint</legend>
-      <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-zinc-200 p-2 dark:border-zinc-800">
+      <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-linha p-2">
         {cartoes.map((c) => (
           <li key={c.id}>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="cartoes" value={c.id} />
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition hover:bg-elevado">
+              <input type="checkbox" name="cartoes" value={c.id} className={CAIXA} />
               <span className="min-w-0 flex-1 truncate">{c.titulo}</span>
-              <span className="tabular-nums text-xs text-zinc-500">{c.pontos} pts</span>
+              <span className="tabular-nums text-xs text-suave">{c.pontos} pts</span>
             </label>
           </li>
         ))}
@@ -89,7 +89,7 @@ function ListaBacklog({ cartoes }: { cartoes: Cartao[] }) {
 export function NovaSprint({ projetoId, backlog, hoje, numero }: { projetoId: string; backlog: Cartao[]; hoje: string; numero: number }) {
   const [estado, acao, enviando] = useActionState(criarSprint, ESTADO_INICIAL);
   return (
-    <form action={acao} noValidate className="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <form action={acao} noValidate className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
       <input type="hidden" name="projeto" value={projetoId} />
       <h2 className="basis-full font-semibold">Nova Sprint {numero}</h2>
       <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? hoje} erro={estado.erros?.inicio} />
@@ -114,18 +114,18 @@ export function SprintAtiva({ sprint, cartoes, backlog }: { sprint: Sprint; cart
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-500/30 dark:bg-indigo-500/10">
+      <section className="rounded-2xl border border-linha-forte bg-painel p-5 shadow-[inset_3px_0_0_var(--color-laranja)]">
         <h2 className="font-semibold">
           Sprint {sprint.numero} · {formatarData(sprint.inicio)} a {formatarData(sprint.fim)}
         </h2>
-        <p className="mt-1 text-sm">{sprint.meta ?? <span className="text-zinc-500">Sem Meta definida.</span>}</p>
+        <p className="mt-1 text-sm">{sprint.meta ?? <span className="text-suave">Sem Meta definida.</span>}</p>
         <p className="mt-2 text-sm tabular-nums">
           <strong>{comprometidos}</strong> pontos comprometidos em {daSprint.length} {daSprint.length === 1 ? "cartão" : "cartões"} ·{" "}
           <strong>{feitos}</strong> concluídos
         </p>
       </section>
 
-      <form action={editar} noValidate className="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <form action={editar} noValidate className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
         <input type="hidden" name="sprint" value={sprint.id} />
         <h3 className="basis-full text-sm font-semibold">Editar datas e Meta</h3>
         <CampoData nome="inicio" rotulo="Início" valor={edicao.valores?.inicio ?? sprint.inicio} erro={edicao.erros?.inicio} />
@@ -137,7 +137,7 @@ export function SprintAtiva({ sprint, cartoes, backlog }: { sprint: Sprint; cart
         <Mensagens estado={edicao} />
       </form>
 
-      <form action={puxar} className="flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <form action={puxar} className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
         <input type="hidden" name="sprint" value={sprint.id} />
         <h3 className="basis-full text-sm font-semibold">Adicionar cartões do Backlog</h3>
         <ListaBacklog cartoes={backlog} />
@@ -154,7 +154,7 @@ export function SprintAtiva({ sprint, cartoes, backlog }: { sprint: Sprint; cart
         <button type="submit" disabled={encerrando} className={BOTAO_SECUNDARIO}>
           {encerrando ? "Encerrando…" : "Encerrar Sprint"}
         </button>
-        <span className="text-sm text-zinc-500">Só pode haver uma Sprint ativa por vez. Encerre esta para criar a próxima.</span>
+        <span className="text-sm text-suave">Só pode haver uma Sprint ativa por vez. Encerre esta para criar a próxima.</span>
         <Mensagens estado={fim} />
       </form>
     </div>
@@ -166,17 +166,17 @@ export function SprintsEncerradas({ sprints, cartoes }: { sprints: Sprint[]; car
   return (
     <section className="flex flex-col gap-2">
       <h2 className="font-semibold">Sprints encerradas</h2>
-      <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white text-sm dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+      <ul className="divide-y divide-linha rounded-2xl border border-linha bg-painel text-sm">
         {sprints.map((s) => {
           const dela = cartoes.filter((c) => c.sprintId === s.id);
           return (
             <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
               <strong>Sprint {s.numero}</strong>
-              <span className="text-zinc-500">
+              <span className="text-suave">
                 {formatarData(s.inicio)} a {formatarData(s.fim)}
               </span>
               <span className="min-w-0 flex-1 truncate">{s.meta ?? ""}</span>
-              <span className="tabular-nums text-zinc-500">{dela.length} cartões</span>
+              <span className="tabular-nums text-suave">{dela.length} cartões</span>
             </li>
           );
         })}

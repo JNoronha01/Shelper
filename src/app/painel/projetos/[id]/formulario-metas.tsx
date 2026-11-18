@@ -17,14 +17,14 @@ export function FormularioMetas({ projetoId, metas }: { projetoId: string; metas
   ] as const;
 
   return (
-    <details className="group rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-indigo-600">
+    <details className="group rounded-2xl border border-linha bg-painel">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-laranja">
         <span className="mr-2 inline-block transition group-open:rotate-90" aria-hidden="true">
           ▸
         </span>
         Metas do time (opcional)
       </summary>
-      <form action={acao} noValidate className="flex flex-wrap items-end gap-4 border-t border-zinc-200 px-4 py-4 dark:border-zinc-800">
+      <form action={acao} noValidate className="flex flex-wrap items-end gap-4 border-t border-linha px-4 py-4">
         <input type="hidden" name="projeto" value={projetoId} />
         {campos.map(([nome, rotulo, valor, modo]) => (
           <div key={nome} className="flex flex-col gap-1">
@@ -39,7 +39,7 @@ export function FormularioMetas({ projetoId, metas }: { projetoId: string; metas
               aria-invalid={estado.erros?.[nome] ? true : undefined}
               className={`${CAMPO} w-36`}
             />
-            {estado.erros?.[nome] && <p className="max-w-44 text-xs text-red-700 dark:text-red-400">{estado.erros[nome]}</p>}
+            {estado.erros?.[nome] && <p className="max-w-44 text-xs text-perigo">{estado.erros[nome]}</p>}
           </div>
         ))}
         <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>

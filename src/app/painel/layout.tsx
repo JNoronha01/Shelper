@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { sair } from "@/app/(acesso)/acoes";
-import { BOTAO_SECUNDARIO } from "@/components/botoes";
+import { Avisos } from "@/components/avisos";
+import { BOTAO_TEXTO } from "@/components/botoes";
 import { Logo } from "@/components/logo";
 import { exigirUsuario } from "@/lib/auth/usuario";
 
@@ -11,15 +12,15 @@ async function ContaDoUsuario() {
     <div className="flex min-w-0 items-center gap-3 text-sm">
       <span
         aria-hidden="true"
-        className="grid size-8 shrink-0 place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+        className="grid size-8 shrink-0 place-items-center rounded-full border border-linha-forte bg-elevado text-sm font-semibold text-texto"
       >
         {inicial}
       </span>
-      <span className="hidden truncate text-zinc-600 sm:inline dark:text-zinc-400" title={usuario.email}>
+      <span className="hidden truncate text-texto sm:inline" title={usuario.email}>
         {usuario.nome}
       </span>
       <form action={sair}>
-        <button type="submit" className={`${BOTAO_SECUNDARIO} !px-3 !py-1.5`}>
+        <button type="submit" className={`${BOTAO_TEXTO} !text-sm`}>
           Sair
         </button>
       </form>
@@ -29,9 +30,10 @@ async function ContaDoUsuario() {
 
 export default function LayoutPainel({ children }: LayoutProps<"/painel">) {
   return (
-    <div className="flex flex-1 flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3">
+    <Avisos>
+    <div className="flex flex-1 flex-col bg-fundo">
+      <header className="sticky top-0 z-20 border-b border-linha bg-fundo/85 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
           <Logo href="/painel" />
           <Suspense>
             <ContaDoUsuario />
@@ -40,5 +42,6 @@ export default function LayoutPainel({ children }: LayoutProps<"/painel">) {
       </header>
       {children}
     </div>
+    </Avisos>
   );
 }

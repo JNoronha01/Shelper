@@ -23,6 +23,7 @@ import { montarPainel, PERIODO_TUDO } from "@/lib/metricas/painel";
 import { Abas, eAba, type IdAba } from "./abas";
 import { Board } from "./board";
 import { ConfiguracaoWip } from "./configuracao-wip";
+import { FaixaSprint } from "./faixa-sprint";
 import { Historico } from "./historico";
 import { Metricas } from "./metricas";
 import { NovaSprint, SprintAtiva, SprintsEncerradas } from "./sprint";
@@ -55,24 +56,24 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
   return (
     <>
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-1">
-          <Link href="/painel" className="text-sm text-zinc-500 hover:text-indigo-700 dark:hover:text-indigo-300">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Link href="/painel" className="w-fit text-sm text-suave transition-colors hover:text-texto">
             ← Meus projetos
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">{projeto.nome}</h1>
-          <p className="text-sm text-zinc-500">
-            {papel === "dono" ? "Você é o dono" : "Você é membro"} · {membros} {membros === 1 ? "integrante" : "integrantes"}
+          <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{projeto.nome}</h1>
+          <p className="text-sm text-suave">
+            {papel === "dono" ? "Você é o dono" : "Você é membro"}, {membros} {membros === 1 ? "integrante" : "integrantes"}
           </p>
         </div>
-        <dl className="grid grid-cols-3 gap-2 text-center sm:gap-3">
+        <dl className="flex divide-x divide-linha rounded-xl border border-linha bg-painel">
           {[
             ["Cartões", String(cartoes.length)],
             ["Concluídos", String(concluidos.length)],
             ["Pontos feitos", `${pontosConcluidos}/${pontosTotais}`],
           ].map(([rotulo, valor]) => (
-            <div key={rotulo} className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
-              <dt className="text-xs text-zinc-500">{rotulo}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{valor}</dd>
+            <div key={rotulo} className="flex flex-col px-4 py-2">
+              <dt className="text-xs text-suave">{rotulo}</dt>
+              <dd className="text-base font-semibold tabular-nums">{valor}</dd>
             </div>
           ))}
         </dl>
@@ -82,6 +83,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
 
       {aba === "board" && (
         <>
+          <FaixaSprint projetoId={projeto.id} sprint={ativa} cartoes={cartoes} hoje={diaLocal(agora)} />
           {papel === "dono" && (
             <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
           )}
@@ -187,10 +189,10 @@ function CarregandoBoard() {
   return (
     <div className="flex flex-col gap-6" aria-busy="true">
       <p className="sr-only">Carregando o board…</p>
-      <div className="h-9 w-64 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+      <div className="h-9 w-64 animate-pulse rounded-lg bg-elevado" />
       <div className="grid grid-flow-col auto-cols-[minmax(15rem,1fr)] gap-4 overflow-hidden">
         {COLUNAS.map((c) => (
-          <div key={c} className="h-72 animate-pulse rounded-xl bg-zinc-200/70 dark:bg-zinc-800/70" />
+          <div key={c} className="h-72 animate-pulse rounded-xl bg-elevado" />
         ))}
       </div>
     </div>
@@ -199,7 +201,7 @@ function CarregandoBoard() {
 
 export default function PaginaProjeto({ params, searchParams }: Props) {
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-4 py-8">
+    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-6 sm:py-8">
       <Suspense fallback={<CarregandoBoard />}>
         <ConteudoProjeto params={params} searchParams={searchParams} />
       </Suspense>
