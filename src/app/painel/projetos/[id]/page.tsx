@@ -21,7 +21,8 @@ import type { LimitesWip } from "@/lib/board/regras";
 import { eUuid } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
 import { abasDoPapel, NOME_DA_FUNCAO, pode, type Funcao } from "@/lib/board/papeis";
-import { diaLocal } from "@/lib/metricas/calculo";
+import { diaLocal, metricasPorCartao } from "@/lib/metricas/calculo";
+import { burndown, diasDoPeriodo, entregasPorDia, fluxoAcumulado, porPessoa, temposPorCartao, wipPorDia } from "@/lib/metricas/graficos";
 import { horasDoContrato } from "@/lib/board/gargalo";
 
 const formatarNumero = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
@@ -30,6 +31,7 @@ import { Abas, eAba, type IdAba } from "./abas";
 import { Board } from "./board";
 import { FaixaSprint } from "./faixa-sprint";
 import { Historico } from "./historico";
+import { Graficos, type DadosGraficos } from "./graficos";
 import { Metricas } from "./metricas";
 import { AbaProjeto } from "./projeto";
 import { NovaSprint, SprintAtiva, SprintsEncerradas } from "./sprint";
@@ -145,6 +147,8 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           metas={metas}
           escolhida={typeof consulta.periodo === "string" ? consulta.periodo : "tudo"}
           agora={agora}
+          time={dados.time}
+          limites={limites}
         />
       )}
       {aba === "historico" && (
@@ -182,6 +186,8 @@ async function AbaMetricas({
   metas,
   escolhida,
   agora,
+  time,
+  limites,
 }: {
   projetoId: string;
   cartoes: Cartao[];
@@ -189,12 +195,44 @@ async function AbaMetricas({
   metas: Metas;
   escolhida: string;
   agora: string;
+  time: Membro[];
+  limites: LimitesWip;
 }) {
   const eventos = await carregarEventosParaCalculo(projetoId);
   const sprint = sprints.find((s) => s.id === escolhida);
   const periodo = sprint ? { inicio: sprint.inicio, fim: sprint.fim } : PERIODO_TUDO;
   const painel = montarPainel(cartoes, eventos, periodo, metas, agora);
-  return <Metricas projetoId={projetoId} painel={painel} metas={metas} sprints={sprints} escolhida={sprint ? sprint.id : "tudo"} />;
+
+  // Séries dos gráficos: os dias da Sprint escolhida, ou os últimos 45 dias do projeto.
+  const hoje = diaLocal(agora);
+  const primeiro = eventos.length ? eventos.reduce((m, e) => (e.em < m ? e.em : m), eventos[0].em) : agora;
+  const inicio45 = new Date(`${hoje}T00:00:00Z`);
+  inicio45.setUTCDate(inicio45.getUTCDate() - 44);
+  const dias = sprint
+    ? diasDoPeriodo(sprint.inicio, sprint.fim)
+    : diasDoPeriodo([diaLocal(primeiro), inicio45.toISOString().slice(0, 10)].sort()[1], hoje);
+  const inicioDias = dias[0] ?? hoje;
+  const fimDias = dias[dias.length - 1] ?? hoje;
+  const metricas = metricasPorCartao(cartoes, eventos);
+  const fluxo = fluxoAcumulado(eventos, dias);
+  const dados: DadosGraficos = {
+    sprintEscolhida: Boolean(sprint),
+    fluxo,
+    wip: wipPorDia(fluxo),
+    limites: { andamento: limites.wipAndamento, revisao: limites.wipRevisao },
+    burndown: sprint ? burndown(cartoes.filter((c) => c.sprintId === sprint.id), eventos, dias, hoje) : null,
+    entregas: entregasPorDia(metricas, dias),
+    tempos: temposPorCartao(metricas, new Map(cartoes.map((c) => [c.id, c.titulo])), inicioDias, fimDias),
+    metas: { leadDias: metas.leadDias, cycleHoras: metas.cycleHoras },
+    pessoas: porPessoa(cartoes, metricas, time, inicioDias, fimDias),
+  };
+
+  return (
+    <>
+      <Metricas projetoId={projetoId} painel={painel} metas={metas} sprints={sprints} escolhida={sprint ? sprint.id : "tudo"} />
+      <Graficos dados={dados} />
+    </>
+  );
 }
 
 // Histórico paginado e filtrado no banco; os filtros vêm do endereço da página.
