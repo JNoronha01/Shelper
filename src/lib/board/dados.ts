@@ -31,6 +31,13 @@ export type Cartao = {
   sprintId: string | null;
   descricao: string | null;
   checklist: ItemChecklist[];
+  responsavelId: string | null;
+  horasEstimadas: number | null;
+  bloqueado: boolean;
+  motivoBloqueio: string | null;
+  bloqueadoEm: string | null;
+  // Última entrada em "Em andamento": é daí que conta o prazo do gargalo.
+  inicioAndamento: string | null;
 };
 
 export type Votacao = {
@@ -87,6 +94,7 @@ export type DadosBoard = {
   votacoes: Votacao[];
   funcao: Funcao;
   membros: number;
+  time: Membro[];
   cartoes: Cartao[];
   eventos: Evento[];
 };
@@ -139,16 +147,18 @@ export async function listarProjetos(usuarioId: string): Promise<ResumoProjeto[]
 export async function carregarBoard(projetoId: string, usuarioId: string): Promise<DadosBoard | null> {
   const supabase = await criarClienteServidor();
 
-  const [projeto, membros, cartoes, eventos, sprints, votacoes] = await Promise.all([
+  const [projeto, membros, cartoes, eventos, sprints, votacoes, inicios] = await Promise.all([
     supabase
       .from("projetos")
       .select("id, nome, wip_andamento, wip_revisao, meta_lead_dias, meta_cycle_horas, meta_velocity, cliente, objetivo, horas_contratadas, data_inicio, data_entrega, duracao_sprint")
       .eq("id", projetoId)
       .maybeSingle(),
-    supabase.from("membros").select("usuario_id, funcao").eq("projeto_id", projetoId),
+    supabase.rpc("listar_time", { p_projeto: projetoId }),
     supabase
       .from("cartoes")
-      .select("id, titulo, pontos, coluna_atual, criado_em, sprint_id, descricao, checklist_itens(id, texto, feito, criado_em)")
+      .select(
+        "id, titulo, pontos, coluna_atual, criado_em, sprint_id, descricao, responsavel_id, horas_estimadas, bloqueado, motivo_bloqueio, bloqueado_em, checklist_itens(id, texto, feito, criado_em)",
+      )
       .eq("projeto_id", projetoId)
       .order("criado_em", { ascending: true }),
     supabase
@@ -168,9 +178,16 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       .eq("projeto_id", projetoId)
       .order("criado_em", { ascending: false })
       .limit(30),
+    // Entradas em Em andamento de cada cartão, para saber quando o prazo começou.
+    supabase
+      .from("eventos")
+      .select("cartao_id, em, cartoes!inner(projeto_id)")
+      .eq("cartoes.projeto_id", projetoId)
+      .eq("para_coluna", "Em andamento")
+      .limit(5000),
   ]);
 
-  for (const r of [projeto, membros, cartoes, eventos, sprints, votacoes]) {
+  for (const r of [projeto, membros, cartoes, eventos, sprints, votacoes, inicios]) {
     if (r.error) {
       console.error("Falha ao carregar o board", { code: r.error.code });
       throw new Error("Não foi possível carregar o board.");
@@ -179,7 +196,12 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
   // Sem linha = projeto inexistente ou de outro time (o RLS esconde).
   if (!projeto.data) return null;
 
-  const listaMembros = (membros.data ?? []) as { usuario_id: string; funcao: Funcao }[];
+  const listaMembros = (membros.data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string }[];
+  const inicioPorCartao = new Map<string, string>();
+  for (const e of (inicios.data ?? []) as { cartao_id: string; em: string }[]) {
+    const atual = inicioPorCartao.get(e.cartao_id);
+    if (!atual || e.em > atual) inicioPorCartao.set(e.cartao_id, e.em);
+  }
   const eu = listaMembros.find((m) => m.usuario_id === usuarioId);
   if (!eu) return null;
 
@@ -229,6 +251,7 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
     })),
     funcao: eu.funcao,
     membros: listaMembros.length,
+    time: listaMembros.map((m) => ({ usuarioId: m.usuario_id, nome: m.nome, email: m.email, funcao: m.funcao, entrouEm: m.entrou_em })),
     cartoes: (cartoes.data ?? [])
       .filter((c) => eColuna(c.coluna_atual))
       .map((c) => ({
@@ -242,6 +265,12 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
         checklist: ((c.checklist_itens ?? []) as { id: string; texto: string; feito: boolean; criado_em: string }[])
           .sort((a, b) => a.criado_em.localeCompare(b.criado_em))
           .map((i) => ({ id: i.id, texto: i.texto, feito: i.feito })),
+        responsavelId: c.responsavel_id,
+        horasEstimadas: c.horas_estimadas === null ? null : Number(c.horas_estimadas),
+        bloqueado: c.bloqueado,
+        motivoBloqueio: c.motivo_bloqueio,
+        bloqueadoEm: c.bloqueado_em,
+        inicioAndamento: inicioPorCartao.get(c.id) ?? null,
       })),
     eventos: ((eventos.data ?? []) as unknown as LinhaEvento[])
       .filter((e) => eColuna(e.para_coluna))

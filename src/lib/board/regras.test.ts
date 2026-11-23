@@ -11,6 +11,8 @@ import {
   validarNovoProjeto,
   validarCadastroProjeto,
   cadastroCompleto,
+  validarHoras,
+  validarMotivo,
   validarNovoCartao,
   validarItemChecklist,
   validarDiasConvite,
@@ -212,5 +214,18 @@ describe("cadastro do projeto", () => {
     expect(cadastroCompleto({ ...base, metas: { leadDias: 3, cycleHoras: 8, velocity: 13 } })).toBe(true);
     expect(cadastroCompleto({ ...base, horasContratadas: null, metas: { leadDias: 3, cycleHoras: 8, velocity: 13 } })).toBe(false);
     expect(cadastroCompleto({ ...base, metas: { leadDias: null, cycleHoras: 8, velocity: 13 } })).toBe(false);
+  });
+});
+
+describe("horas estimadas e bloqueio", () => {
+  it("aceita horas com vírgula e meia hora, recusa vazio e fora da faixa", () => {
+    expect(validarHoras("2,5")).toEqual({ ok: true, dados: { horas: 2.5 } });
+    expect(validarHoras("16")).toEqual({ ok: true, dados: { horas: 16 } });
+    for (const v of ["", "0", "0,2", "1001", "abc"]) expect(validarHoras(v).ok).toBe(false);
+  });
+  it("o motivo do bloqueio é obrigatório e curto", () => {
+    expect(validarMotivo(" Esperando a API ")).toEqual({ ok: true, dados: { motivo: "Esperando a API" } });
+    expect(validarMotivo("  ").ok).toBe(false);
+    expect(validarMotivo("x".repeat(301)).ok).toBe(false);
   });
 });

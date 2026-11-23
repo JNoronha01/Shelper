@@ -14,6 +14,8 @@ import {
   validarMetas,
   validarNovoCartao,
   validarCadastroProjeto,
+  validarHoras,
+  validarMotivo,
   type CadastroProjeto,
   validarSprint,
   valorDeVotoValido,
@@ -137,18 +139,24 @@ export async function criarCartao(_anterior: EstadoAcao, form: FormData): Promis
     pontos: String(form.get("pontos") ?? ""),
     coluna: String(form.get("coluna") ?? ""),
     descricao: String(form.get("descricao") ?? ""),
+    horas: String(form.get("horas") ?? ""),
+    responsavel: String(form.get("responsavel") ?? ""),
   };
   if (!eUuid(projeto)) return { mensagem: SEM_ACESSO };
   const v = validarNovoCartao(form.get("titulo"), form.get("pontos"), form.get("coluna"), form.get("descricao"));
-  if (!v.ok) return { erros: v.erros, valores };
+  const h = validarHoras(form.get("horas"));
+  if (!v.ok || !h.ok) return { erros: { ...(v.ok ? {} : v.erros), ...(h.ok ? {} : h.erros) }, valores };
+  const responsavel = eUuid(form.get("responsavel")) ? valores.responsavel : null;
 
   const supabase = await clienteComSessao();
-  const { data, error } = await supabase.rpc("criar_cartao_na_coluna", {
+  const { data, error } = await supabase.rpc("criar_cartao_completo", {
     p_projeto: projeto,
     p_titulo: v.dados.titulo,
     p_pontos: v.dados.pontos,
     p_coluna: v.dados.coluna,
     p_descricao: v.dados.descricao,
+    p_horas: h.dados.horas,
+    p_responsavel: responsavel,
     p_confirmar_wip: form.get("confirmarWip") === "sim",
   });
   if (error) return { mensagem: mensagemDoBanco(error), valores };
@@ -166,16 +174,18 @@ export async function criarCartao(_anterior: EstadoAcao, form: FormData): Promis
 
 export async function editarCartao(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   const cartao = form.get("cartao");
-  const valores = { titulo: String(form.get("titulo") ?? ""), pontos: String(form.get("pontos") ?? "") };
+  const valores = { titulo: String(form.get("titulo") ?? ""), pontos: String(form.get("pontos") ?? ""), horas: String(form.get("horas") ?? "") };
   if (!eUuid(cartao)) return { mensagem: SEM_ACESSO };
   const validacao = validarCartao(form.get("titulo"), form.get("pontos"));
-  if (!validacao.ok) return { erros: validacao.erros, valores };
+  const h = validarHoras(form.get("horas"));
+  if (!validacao.ok || !h.ok) return { erros: { ...(validacao.ok ? {} : validacao.erros), ...(h.ok ? {} : h.erros) }, valores };
 
   const supabase = await clienteComSessao();
-  const { error } = await supabase.rpc("editar_cartao", {
+  const { error } = await supabase.rpc("editar_cartao_completo", {
     p_cartao: cartao,
     p_titulo: validacao.dados.titulo,
     p_pontos: validacao.dados.pontos,
+    p_horas: h.dados.horas,
   });
   if (error) return { mensagem: mensagemDoBanco(error), valores };
 
@@ -438,4 +448,29 @@ export async function encerrarVotacao(votacao: string, tipo: TipoVotacao, result
 export async function cancelarVotacao(votacao: string): Promise<ResultadoSimples> {
   if (!eUuid(votacao)) return { ok: false, mensagem: SEM_ACESSO };
   return chamar("cancelar_votacao", { p_votacao: votacao });
+}
+
+// ---------------------------------------------------------------- Responsável e bloqueio
+
+// usuario = null tira o responsável. O desenvolvedor só pega um cartão sem dono ou larga o seu
+// (o banco confere).
+export async function definirResponsavel(cartao: string, usuario: string | null): Promise<ResultadoSimples> {
+  if (!eUuid(cartao) || (usuario !== null && !eUuid(usuario))) return { ok: false, mensagem: SEM_ACESSO };
+  return chamar("definir_responsavel", { p_cartao: cartao, p_usuario: usuario });
+}
+
+export async function bloquearCartao(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const cartao = form.get("cartao");
+  const valores = { motivo: String(form.get("motivo") ?? "") };
+  if (!eUuid(cartao)) return { mensagem: SEM_ACESSO };
+  const v = validarMotivo(form.get("motivo"));
+  if (!v.ok) return { erros: v.erros, valores };
+  const r = await chamar("definir_bloqueio", { p_cartao: cartao, p_bloqueado: true, p_motivo: v.dados.motivo });
+  if (!r.ok) return { mensagem: r.mensagem, valores };
+  return { sucesso: "Cartão marcado como bloqueado.", versao: Date.now() };
+}
+
+export async function desbloquearCartao(cartao: string): Promise<ResultadoSimples> {
+  if (!eUuid(cartao)) return { ok: false, mensagem: SEM_ACESSO };
+  return chamar("definir_bloqueio", { p_cartao: cartao, p_bloqueado: false, p_motivo: null });
 }

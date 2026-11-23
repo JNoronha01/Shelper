@@ -303,3 +303,27 @@ export function cadastroCompleto(p: {
       p.metas.leadDias && p.metas.cycleHoras && p.metas.velocity,
   );
 }
+
+// ---------------------------------------------------------------- Horas estimadas e bloqueio
+
+export const HORAS_MINIMO = 0.5;
+export const HORAS_MAXIMO = 1000;
+
+// Horas estimadas do cartão (obrigatórias): aceitam vírgula e meia hora.
+export function validarHoras(bruto: FormDataEntryValue | null | undefined): Resultado<{ horas: number }> {
+  const t = texto(bruto).replace(",", ".");
+  const n = Number(t);
+  if (!t || !Number.isFinite(n) || n < HORAS_MINIMO || n > HORAS_MAXIMO || Math.round(n * 10) !== n * 10) {
+    return { ok: false, erros: { horas: `Informe as horas estimadas (de ${HORAS_MINIMO.toLocaleString("pt-BR")} a ${HORAS_MAXIMO}).` } };
+  }
+  return { ok: true, dados: { horas: n } };
+}
+
+export const MOTIVO_MAXIMO = 300;
+
+export function validarMotivo(bruto: FormDataEntryValue | null | undefined): Resultado<{ motivo: string }> {
+  const t = texto(bruto);
+  if (!t) return { ok: false, erros: { motivo: "Escreva o motivo do bloqueio." } };
+  if (t.length > MOTIVO_MAXIMO) return { ok: false, erros: { motivo: `Use no máximo ${MOTIVO_MAXIMO} caracteres.` } };
+  return { ok: true, dados: { motivo: t } };
+}

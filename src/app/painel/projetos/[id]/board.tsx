@@ -4,7 +4,8 @@ import { useOptimistic, useState, useTransition, type DragEvent } from "react";
 import { useAvisar } from "@/components/avisos";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
-import type { Cartao, Votacao } from "@/lib/board/dados";
+import type { Cartao, Membro, Votacao } from "@/lib/board/dados";
+import { alertasDoBoard, formatarDuracao, prazoDoCartao } from "@/lib/board/gargalo";
 import { limiteDaColuna, situacaoWip, type LimitesWip, type SituacaoWip } from "@/lib/board/regras";
 import { COLUNAS, colunaAnterior, proximaColuna, type Coluna } from "@/lib/colunas";
 import { pode, type Funcao } from "@/lib/board/papeis";
@@ -37,12 +38,19 @@ export function Board({
   cartoes,
   votacoes,
   funcao,
+  time,
+  agora,
+  meuId,
 }: {
   projetoId: string;
+  meuId: string;
   limites: LimitesWip;
   cartoes: Cartao[];
   votacoes: Votacao[];
   funcao: Funcao;
+  time: Membro[];
+  // Hora do servidor ao montar a página: base do prazo de cada cartão.
+  agora: string;
 }) {
   // Só o PO cria cartões; o desenvolvedor e o SM movem (o banco confere de novo).
   const podeCriar = pode(funcao, "criarCartao");
@@ -98,6 +106,10 @@ export function Board({
           {movendo ? "Gravando…" : "Arraste os cartões entre as colunas. Clique no título para abrir o detalhe."}
         </p>
       </div>
+
+      {pode(funcao, "verMetricasTime") && (
+        <PainelAtencao cartoes={visiveis} time={time} agora={agora} onAbrir={setDetalheId} />
+      )}
 
       <div className="sem-barra -mx-4 overflow-x-auto px-4 pb-2">
         <ol className="grid min-w-max grid-flow-col auto-cols-[17.5rem] gap-3 xl:min-w-0 xl:auto-cols-fr">
@@ -159,6 +171,8 @@ export function Board({
                       onMover={mover}
                       onAbrir={() => setDetalheId(cartao.id)}
                       emVotacao={emVotacao.has(cartao.id)}
+                      responsavel={time.find((m) => m.usuarioId === cartao.responsavelId) ?? null}
+                      agora={agora}
                     />
                   ))}
                 </ul>
@@ -186,11 +200,14 @@ export function Board({
         </ol>
       </div>
 
-      <NovoCartao projetoId={projetoId} coluna={criarEm} onFechar={() => setCriarEm(null)} onCriado={(texto) => avisar(texto)} />
+      <NovoCartao projetoId={projetoId} coluna={criarEm} onFechar={() => setCriarEm(null)} onCriado={(texto) => avisar(texto)} time={time} />
       <DetalheCartao
         projetoId={projetoId}
         podeEditar={podeCriar}
         podeConduzir={pode(funcao, "conduzirVotacao")}
+        time={time}
+        meuId={meuId}
+        agora={agora}
         cartao={detalhe}
         emVotacao={detalhe ? emVotacao.has(detalhe.id) : false}
         onFechar={() => setDetalheId(null)}
@@ -234,6 +251,8 @@ function CartaoNoBoard({
   onMover,
   onAbrir,
   emVotacao,
+  responsavel,
+  agora,
 }: {
   cartao: Cartao;
   ocupado: boolean;
@@ -242,7 +261,11 @@ function CartaoNoBoard({
   onMover: (cartao: Cartao, para: Coluna) => void;
   onAbrir: () => void;
   emVotacao: boolean;
+  responsavel: Membro | null;
+  agora: string;
 }) {
+  const prazo = prazoDoCartao(cartao, agora);
+  const atrasado = Boolean(prazo?.atrasado);
   const anterior = colunaAnterior(cartao.coluna);
   const proxima = proximaColuna(cartao.coluna);
   const concluido = cartao.coluna === "Concluído";
@@ -259,7 +282,7 @@ function CartaoNoBoard({
       }}
       onDragEnd={() => onArrastar(null)}
       className={`pousar group flex cursor-grab flex-col gap-2.5 rounded-cartao border bg-cartao p-3 transition duration-150 ease-suave active:cursor-grabbing ${
-        concluido ? "border-linha/60 bg-cartao/60" : "border-linha"
+        atrasado || cartao.bloqueado ? "alerta border-perigo/70" : concluido ? "border-linha/60 bg-cartao/60" : "border-linha"
       } ${arrastado ? "scale-[0.98] opacity-40" : "hover:-translate-y-px hover:border-linha-forte hover:shadow-[0_8px_20px_-12px_rgb(0_0_0/0.9)]"}`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -281,6 +304,17 @@ function CartaoNoBoard({
           <span className="sr-only"> pontos</span>
         </span>
       </div>
+
+      {(atrasado || cartao.bloqueado) && (
+        <p className="flex flex-col gap-0.5 rounded-md bg-perigo/10 px-2 py-1.5 text-xs text-perigo">
+          {atrasado && prazo && (
+            <span className="font-medium">
+              Gargalo: {formatarDuracao(prazo.decorridoHoras)} de {formatarDuracao(prazo.estimadoHoras)} estimadas
+            </span>
+          )}
+          {cartao.bloqueado && <span className="line-clamp-2">Bloqueado: {cartao.motivoBloqueio}</span>}
+        </p>
+      )}
 
       {(cartao.descricao || total > 0 || emVotacao) && (
         <ul className="flex flex-wrap gap-1.5 text-[11px] font-medium text-suave" aria-label="Resumo do cartão">
@@ -312,7 +346,8 @@ function CartaoNoBoard({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-1.5 transition-opacity duration-150 md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 transition-opacity duration-150 md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
         {anterior && (
           <button
             type="button"
@@ -335,7 +370,110 @@ function CartaoNoBoard({
             Avançar <span aria-hidden="true">→</span>
           </button>
         )}
+        </div>
+        <span className="ml-auto flex items-center gap-1.5 text-[11px] text-suave">
+          {cartao.horasEstimadas !== null ? (
+            <span className="tabular-nums" title="Horas estimadas">
+              {formatarDuracao(cartao.horasEstimadas)}
+            </span>
+          ) : (
+            !concluido && <span title="Sem horas estimadas">sem estimativa</span>
+          )}
+          {responsavel ? (
+            <span
+              className="grid size-6 place-items-center rounded-full border border-linha-forte bg-elevado text-[10px] font-semibold text-texto"
+              title={`Responsável: ${responsavel.nome}`}
+            >
+              {iniciais(responsavel.nome)}
+              <span className="sr-only">Responsável: {responsavel.nome}</span>
+            </span>
+          ) : (
+            <span className="grid size-6 place-items-center rounded-full border border-dashed border-linha-forte text-[10px]" title="Sem responsável">
+              <span aria-hidden="true">?</span>
+              <span className="sr-only">Sem responsável</span>
+            </span>
+          )}
+        </span>
       </div>
     </li>
+  );
+}
+
+// "Jorge Noronha" -> "JN"; "Andryws" -> "A".
+export function iniciais(nome: string) {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  return ((partes[0]?.[0] ?? "?") + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
+}
+
+// Painel Atenção (PO e SM): cartões que passaram do tempo estimado ou estão bloqueados,
+// com quem, o quê, há quanto tempo e por quê (pedido do professor em 21/11).
+function PainelAtencao({
+  cartoes,
+  time,
+  agora,
+  onAbrir,
+}: {
+  cartoes: Cartao[];
+  time: Membro[];
+  agora: string;
+  onAbrir: (id: string) => void;
+}) {
+  const alertas = alertasDoBoard(cartoes, agora);
+  if (alertas.length === 0) return null;
+  const porId = new Map(cartoes.map((c) => [c.id, c]));
+  const nome = (id: string | null) => time.find((m) => m.usuarioId === id)?.nome ?? "Sem responsável";
+
+  return (
+    <details className="group alerta rounded-2xl border border-perigo/50 bg-perigo/[0.07]">
+      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-2.5 text-sm marker:hidden focus-visible:outline-2 focus-visible:outline-laranja [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" className="size-2 rounded-full bg-perigo" />
+        <strong className="font-semibold text-perigo">
+          {alertas.length} {alertas.length === 1 ? "cartão pede" : "cartões pedem"} atenção
+        </strong>
+        <span className="text-suave">atrasados ou bloqueados</span>
+        <svg viewBox="0 0 16 16" aria-hidden="true" className="ml-auto size-4 text-suave transition-transform duration-200 ease-suave group-open:rotate-180">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </summary>
+      <div className="surgir overflow-x-auto border-t border-perigo/30 px-4 py-3">
+        <table className="w-full min-w-[40rem] text-left text-sm">
+          <thead className="text-xs text-suave">
+            <tr>
+              <th className="py-1.5 pr-3 font-medium">O quê</th>
+              <th className="py-1.5 pr-3 font-medium">Quem</th>
+              <th className="py-1.5 pr-3 font-medium">Onde</th>
+              <th className="py-1.5 pr-3 font-medium">Há quanto tempo</th>
+              <th className="py-1.5 font-medium">Por quê</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-linha">
+            {alertas.map((a) => {
+              const c = porId.get(a.cartaoId)!;
+              return (
+                <tr key={a.cartaoId}>
+                  <td className="py-2 pr-3">
+                    <button type="button" onClick={() => onAbrir(c.id)} className="text-left font-medium hover:text-laranja-claro focus-visible:outline-2 focus-visible:outline-laranja">
+                      {c.titulo}
+                    </button>
+                  </td>
+                  <td className="py-2 pr-3">{nome(c.responsavelId)}</td>
+                  <td className="py-2 pr-3 text-suave">{c.coluna}</td>
+                  <td className="py-2 pr-3 tabular-nums">
+                    {a.prazo?.atrasado
+                      ? `${formatarDuracao(a.prazo.decorridoHoras)} (estimado ${formatarDuracao(a.prazo.estimadoHoras)})`
+                      : c.bloqueadoEm
+                        ? `bloqueado há ${formatarDuracao((Date.parse(agora) - Date.parse(c.bloqueadoEm)) / 3_600_000)}`
+                        : "–"}
+                  </td>
+                  <td className="py-2 text-suave">
+                    {[a.prazo?.atrasado && "Passou do tempo estimado", c.bloqueado && `Bloqueado: ${c.motivoBloqueio}`].filter(Boolean).join(". ")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }
