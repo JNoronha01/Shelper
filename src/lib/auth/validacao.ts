@@ -12,9 +12,7 @@ export type DadosLogin = { email: string; senha: string };
 
 export type ErrosCampos<Campo extends string> = Partial<Record<Campo, string>>;
 
-export type Validacao<Dados, Campo extends string> =
-  | { ok: true; dados: Dados }
-  | { ok: false; erros: ErrosCampos<Campo> };
+export type Validacao<Dados, Campo extends string> = { ok: true; dados: Dados } | { ok: false; erros: ErrosCampos<Campo> };
 
 type CampoCadastro = "nome" | "email" | "senha" | "confirmacao";
 type CampoLogin = "email" | "senha";
@@ -36,9 +34,7 @@ function erroEmail(email: string): string | undefined {
   return undefined;
 }
 
-export function validarCadastro(
-  form: FormData,
-): Validacao<DadosCadastro, CampoCadastro> {
+export function validarCadastro(form: FormData): Validacao<DadosCadastro, CampoCadastro> {
   const nome = texto(form, "nome").trim().replace(/\s+/g, " ");
   const email = normalizarEmail(texto(form, "email"));
   const senha = texto(form, "senha");
@@ -78,4 +74,52 @@ export function validarLogin(form: FormData): Validacao<DadosLogin, CampoLogin> 
 
   if (Object.keys(erros).length > 0) return { ok: false, erros };
   return { ok: true, dados: { email, senha } };
+}
+
+// ---------------------------------------------------------------- Perfil (editar dados)
+
+export function validarNomePerfil(form: FormData): Validacao<{ nome: string }, "nome"> {
+  const nome = texto(form, "nome").trim().replace(/\s+/g, " ");
+  if (nome.length < 2) return { ok: false, erros: { nome: "Informe seu nome (pelo menos 2 letras)." } };
+  if (nome.length > NOME_MAXIMO) return { ok: false, erros: { nome: `O nome pode ter no máximo ${NOME_MAXIMO} caracteres.` } };
+  return { ok: true, dados: { nome } };
+}
+
+export function validarTrocaDeSenha(form: FormData): Validacao<{ atual: string; nova: string }, "atual" | "nova" | "confirmacao"> {
+  const atual = texto(form, "atual");
+  const nova = texto(form, "nova");
+  const confirmacao = texto(form, "confirmacao");
+  const erros: ErrosCampos<"atual" | "nova" | "confirmacao"> = {};
+  if (!atual) erros.atual = "Informe a senha atual.";
+  if (!nova) erros.nova = "Crie a nova senha.";
+  else if (nova.length < SENHA_MINIMO) erros.nova = `A senha precisa ter pelo menos ${SENHA_MINIMO} caracteres.`;
+  else if (new TextEncoder().encode(nova).length > SENHA_MAXIMO) erros.nova = `A senha pode ter no máximo ${SENHA_MAXIMO} caracteres.`;
+  else if (nova === atual) erros.nova = "A nova senha precisa ser diferente da atual.";
+  if (!confirmacao) erros.confirmacao = "Repita a nova senha.";
+  else if (confirmacao !== nova) erros.confirmacao = "As senhas não coincidem.";
+  if (Object.keys(erros).length > 0) return { ok: false, erros };
+  return { ok: true, dados: { atual, nova } };
+}
+
+export function validarTrocaDeEmail(form: FormData, emailAtual: string): Validacao<{ email: string; senha: string }, "email" | "senha"> {
+  const email = normalizarEmail(texto(form, "email"));
+  const senha = texto(form, "senha");
+  const erros: ErrosCampos<"email" | "senha"> = {};
+  const problema = erroEmail(email);
+  if (problema) erros.email = problema;
+  else if (email === normalizarEmail(emailAtual)) erros.email = "Esse já é o seu e-mail.";
+  if (!senha) erros.senha = "Confirme com a sua senha.";
+  if (Object.keys(erros).length > 0) return { ok: false, erros };
+  return { ok: true, dados: { email, senha } };
+}
+
+// Foto: só imagens pequenas (a tela já reduz para 256 px antes de enviar).
+export const FOTO_MAXIMO_BYTES = 1024 * 1024;
+export const FOTO_TIPOS = ["image/webp", "image/png", "image/jpeg"] as const;
+
+export function validarFoto(arquivo: FormDataEntryValue | null): Validacao<{ arquivo: File }, "foto"> {
+  if (!(arquivo instanceof File) || arquivo.size === 0) return { ok: false, erros: { foto: "Escolha uma imagem." } };
+  if (!(FOTO_TIPOS as readonly string[]).includes(arquivo.type)) return { ok: false, erros: { foto: "Use uma imagem JPG, PNG ou WEBP." } };
+  if (arquivo.size > FOTO_MAXIMO_BYTES) return { ok: false, erros: { foto: "A imagem pode ter no máximo 1 MB." } };
+  return { ok: true, dados: { arquivo } };
 }

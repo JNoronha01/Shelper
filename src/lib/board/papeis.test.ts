@@ -3,7 +3,15 @@ import { abasDoPapel, pode } from "./papeis";
 
 describe("papéis no time", () => {
   it("o PO pode tudo", () => {
-    for (const p of ["criarCartao", "gerirSprint", "verMetricasTime", "conduzirVotacao", "alterarWip", "editarCadastro", "gerirTime"] as const) {
+    for (const p of [
+      "criarCartao",
+      "gerirSprint",
+      "verMetricasTime",
+      "conduzirVotacao",
+      "alterarWip",
+      "editarCadastro",
+      "gerirTime",
+    ] as const) {
       expect(pode("po", p)).toBe(true);
     }
   });
@@ -16,12 +24,21 @@ describe("papéis no time", () => {
     expect(pode("sm", "gerirTime")).toBe(false);
   });
   it("o desenvolvedor não cria nem altera regras", () => {
-    for (const p of ["criarCartao", "gerirSprint", "verMetricasTime", "verHistorico", "conduzirVotacao", "alterarWip", "editarCadastro", "gerirTime"] as const) {
+    for (const p of [
+      "criarCartao",
+      "gerirSprint",
+      "verMetricasTime",
+      "verHistorico",
+      "conduzirVotacao",
+      "alterarWip",
+      "editarCadastro",
+      "gerirTime",
+    ] as const) {
       expect(pode("dev", p)).toBe(false);
     }
   });
   it("cada papel vê só as abas que usa", () => {
-    expect(abasDoPapel("dev")).toEqual(["board", "sprint", "votacao", "time"]);
+    expect(abasDoPapel("dev")).toEqual(["board", "sprint", "minhas", "votacao", "time"]);
     expect(abasDoPapel("sm")).toEqual(["board", "sprint", "metricas", "votacao", "historico", "time", "projeto"]);
     expect(abasDoPapel("po")).toEqual(abasDoPapel("sm"));
   });

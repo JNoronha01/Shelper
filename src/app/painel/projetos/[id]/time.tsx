@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO } from "@/components/botoes";
+import { Avatar } from "@/components/avatar";
 import { Seletor } from "@/components/seletor";
 import type { Convite, Membro } from "@/lib/board/dados";
 import { NOME_DA_FUNCAO, SIGLA_DA_FUNCAO, type Funcao } from "@/lib/board/papeis";
@@ -65,12 +66,7 @@ function ListaDeMembros({ projetoId, membros, podeGerir, meuId }: { projetoId: s
       <ul className="divide-y divide-linha">
         {membros.map((m) => (
           <li key={m.usuarioId} className="flex flex-wrap items-center gap-3 py-3">
-            <span
-              aria-hidden="true"
-              className="grid size-9 place-items-center rounded-full border border-linha-forte bg-elevado text-sm font-semibold text-texto"
-            >
-              {m.nome.trim().charAt(0).toUpperCase() || "?"}
-            </span>
+            <Avatar nome={m.nome} foto={m.foto} tamanho="g" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">
                 {m.nome}

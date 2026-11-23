@@ -43,11 +43,12 @@ const QUEM_PODE: Record<Permissao, readonly Funcao[]> = {
 export const pode = (funcao: Funcao, permissao: Permissao) => QUEM_PODE[permissao].includes(funcao);
 
 // Abas do projeto que cada papel vê, na ordem da tela.
-export type IdAba = "board" | "sprint" | "metricas" | "votacao" | "historico" | "time" | "projeto";
+export type IdAba = "board" | "sprint" | "metricas" | "minhas" | "votacao" | "historico" | "time" | "projeto";
 
 export function abasDoPapel(funcao: Funcao): IdAba[] {
   const abas: IdAba[] = ["board", "sprint"];
-  if (pode(funcao, "verMetricasTime")) abas.push("metricas");
+  // PO e SM veem as métricas do time (com filtro por pessoa); o Dev vê só as dele.
+  abas.push(pode(funcao, "verMetricasTime") ? "metricas" : "minhas");
   abas.push("votacao");
   if (pode(funcao, "verHistorico")) abas.push("historico");
   abas.push("time");

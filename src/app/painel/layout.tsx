@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { Suspense } from "react";
+import { Avatar } from "@/components/avatar";
+import { carregarMeuPerfil } from "@/lib/board/dados";
 import { sair } from "@/app/(acesso)/acoes";
 import { Avisos } from "@/components/avisos";
 import { BOTAO_TEXTO } from "@/components/botoes";
@@ -7,18 +10,18 @@ import { exigirUsuario } from "@/lib/auth/usuario";
 
 async function ContaDoUsuario() {
   const usuario = await exigirUsuario();
-  const inicial = usuario.nome.trim().charAt(0).toUpperCase() || "?";
+  const perfil = await carregarMeuPerfil(usuario.id);
+  const nome = perfil?.nome ?? usuario.nome;
   return (
-    <div className="flex min-w-0 items-center gap-3 text-sm">
-      <span
-        aria-hidden="true"
-        className="grid size-8 shrink-0 place-items-center rounded-full border border-linha-forte bg-elevado text-sm font-semibold text-texto"
+    <div className="flex min-w-0 items-center gap-2 text-sm">
+      <Link
+        href="/painel/perfil"
+        className="flex min-w-0 items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-elevado focus-visible:outline-2 focus-visible:outline-laranja"
+        title="Meu perfil"
       >
-        {inicial}
-      </span>
-      <span className="hidden truncate text-texto sm:inline" title={usuario.email}>
-        {usuario.nome}
-      </span>
+        <Avatar nome={nome} foto={perfil?.foto} />
+        <span className="hidden truncate text-texto sm:inline">{nome}</span>
+      </Link>
       <form action={sair}>
         <button type="submit" className={`${BOTAO_TEXTO} !text-sm`}>
           Sair
