@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { listarProjetos, type ResumoProjeto } from "@/lib/board/dados";
 import { COLUNAS } from "@/lib/colunas";
+import { SIGLA_DA_FUNCAO } from "@/lib/board/papeis";
 import { NovoProjeto } from "./formulario-projeto";
 
 export const metadata: Metadata = { title: "Meus projetos · Shelper" };
@@ -30,7 +31,7 @@ function CartaoProjeto({ p }: { p: ResumoProjeto }) {
           </span>
         </div>
         <span className="shrink-0 rounded-full border border-linha px-2 py-0.5 text-xs text-suave">
-          {p.papel === "dono" ? "Dono" : "Membro"}
+          {SIGLA_DA_FUNCAO[p.funcao]}
         </span>
       </div>
 

@@ -9,6 +9,8 @@ import {
   validarLimitesWip,
   validarNomeProjeto,
   validarNovoProjeto,
+  validarCadastroProjeto,
+  cadastroCompleto,
   validarNovoCartao,
   validarItemChecklist,
   validarDiasConvite,
@@ -167,5 +169,48 @@ describe("ideias do professor", () => {
     expect(resumoDosVotos("pontos", [3, 5, 8])).toMatchObject({ menor: 3, maior: 8, sugestao: 5, consenso: false });
     expect(resumoDosVotos("pontos", [5, 5])).toMatchObject({ sugestao: 5, consenso: true });
     expect(resumoDosVotos("wip", [2, 3])).toMatchObject({ media: 2.5, sugestao: 2 });
+  });
+});
+
+describe("cadastro do projeto", () => {
+  const completo: Record<string, string> = {
+    nome: "Shelper",
+    cliente: "UMC",
+    objetivo: "Board com métricas automáticas",
+    horas: "400",
+    inicio: "2026-11-03",
+    entrega: "2026-12-01",
+    duracao: "14",
+    lead: "3,5",
+    cycle: "8",
+    velocity: "13",
+  };
+  const form = (sobrescrever: Record<string, string> = {}) => {
+    const d = { ...completo, ...sobrescrever };
+    return { get: (n: string) => d[n] ?? null };
+  };
+  it("aceita o cadastro completo e converte os números", () => {
+    const r = validarCadastroProjeto(form());
+    expect(r).toEqual({
+      ok: true,
+      dados: { nome: "Shelper", cliente: "UMC", objetivo: "Board com métricas automáticas", horas: 400, inicio: "2026-11-03", entrega: "2026-12-01", duracao: 14, lead: 3.5, cycle: 8, velocity: 13 },
+    });
+  });
+  it("todos os campos são obrigatórios", () => {
+    const vazio = Object.fromEntries(Object.keys(completo).map((k) => [k, ""]));
+    const r = validarCadastroProjeto(form(vazio));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.erros).sort()).toEqual(Object.keys(completo).sort());
+  });
+  it("a entrega não pode ser antes do início e as horas são inteiras", () => {
+    const r = validarCadastroProjeto(form({ entrega: "2026-11-01", horas: "10.5" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.erros).sort()).toEqual(["entrega", "horas"]);
+  });
+  it("sabe quando um projeto antigo ainda não tem o cadastro completo", () => {
+    const base = { cliente: "UMC", objetivo: "x", horasContratadas: 400, dataInicio: "2026-11-03", dataEntrega: "2026-12-01", duracaoSprint: 14 };
+    expect(cadastroCompleto({ ...base, metas: { leadDias: 3, cycleHoras: 8, velocity: 13 } })).toBe(true);
+    expect(cadastroCompleto({ ...base, horasContratadas: null, metas: { leadDias: 3, cycleHoras: 8, velocity: 13 } })).toBe(false);
+    expect(cadastroCompleto({ ...base, metas: { leadDias: null, cycleHoras: 8, velocity: 13 } })).toBe(false);
   });
 });

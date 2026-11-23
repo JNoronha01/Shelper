@@ -17,11 +17,16 @@ export function DetalheCartao({
   cartao,
   emVotacao,
   onFechar,
+  podeEditar,
+  podeConduzir,
 }: {
   projetoId: string;
   cartao: Cartao | null;
   emVotacao: boolean;
   onFechar: () => void;
+  // PO: título e pontos. PO e SM: abrir a votação. Todos: descrição e checklist.
+  podeEditar: boolean;
+  podeConduzir: boolean;
 }) {
   return (
     <Modal aberto={cartao !== null} onFechar={onFechar} titulo={cartao?.titulo ?? ""} largura="max-w-2xl">
@@ -32,10 +37,19 @@ export function DetalheCartao({
             Em <strong className="font-medium text-texto">{cartao.coluna}</strong> · criado em{" "}
             {formatarDataHora(cartao.criadoEm)}
           </p>
-          <TituloEPontos cartao={cartao} />
+          {podeEditar ? (
+            <TituloEPontos cartao={cartao} />
+          ) : (
+            <p className="text-sm">
+              <span className="text-suave">Pontos: </span>
+              <strong className="font-semibold tabular-nums">{cartao.pontos}</strong>
+            </p>
+          )}
           <Descricao cartao={cartao} />
           <Checklist cartao={cartao} />
-          <VotarPontos projetoId={projetoId} cartao={cartao} emVotacao={emVotacao} />
+          {(podeConduzir || emVotacao) && (
+            <VotarPontos projetoId={projetoId} cartao={cartao} emVotacao={emVotacao} />
+          )}
         </div>
       )}
     </Modal>

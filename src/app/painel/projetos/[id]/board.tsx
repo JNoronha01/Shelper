@@ -7,6 +7,7 @@ import { Modal } from "@/components/modal";
 import type { Cartao, Votacao } from "@/lib/board/dados";
 import { limiteDaColuna, situacaoWip, type LimitesWip, type SituacaoWip } from "@/lib/board/regras";
 import { COLUNAS, colunaAnterior, proximaColuna, type Coluna } from "@/lib/colunas";
+import { pode, type Funcao } from "@/lib/board/papeis";
 import { moverCartao } from "../../acoes";
 import { DetalheCartao } from "./detalhe-cartao";
 import { NovoCartao } from "./novo-cartao";
@@ -35,12 +36,16 @@ export function Board({
   limites,
   cartoes,
   votacoes,
+  funcao,
 }: {
   projetoId: string;
   limites: LimitesWip;
   cartoes: Cartao[];
   votacoes: Votacao[];
+  funcao: Funcao;
 }) {
+  // Só o PO cria cartões; o desenvolvedor e o SM movem (o banco confere de novo).
+  const podeCriar = pode(funcao, "criarCartao");
   // A tela já mostra o cartão na coluna nova enquanto o servidor grava o evento.
   const [visiveis, moverNaTela] = useOptimistic(cartoes, (atual: Cartao[], m: { id: string; para: Coluna }) =>
     atual.map((c) => (c.id === m.id ? { ...c, coluna: m.para } : c)),
@@ -82,9 +87,13 @@ export function Board({
   return (
     <section aria-label="Board" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button type="button" onClick={() => setCriarEm("Backlog")} className={BOTAO_PRINCIPAL}>
-          <span aria-hidden="true" className="text-base leading-none">+</span> Novo cartão
-        </button>
+        {podeCriar ? (
+          <button type="button" onClick={() => setCriarEm("Backlog")} className={BOTAO_PRINCIPAL}>
+            <span aria-hidden="true" className="text-base leading-none">+</span> Novo cartão
+          </button>
+        ) : (
+          <span />
+        )}
         <p className="text-sm text-suave">
           {movendo ? "Gravando…" : "Arraste os cartões entre as colunas. Clique no título para abrir o detalhe."}
         </p>
@@ -112,7 +121,7 @@ export function Board({
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setAlvo(null);
                 }}
                 onDrop={(e) => soltar(e, coluna)}
-                className={`flex min-h-[22rem] flex-col gap-3 rounded-coluna border bg-painel p-2.5 transition duration-200 ease-suave ${estilo.borda} ${
+                className={`flex h-[calc(100dvh-20rem)] min-h-[22rem] flex-col gap-3 rounded-coluna border bg-painel p-2.5 transition duration-200 ease-suave ${estilo.borda} ${
                   ehAlvo ? "!border-laranja/70 bg-laranja/[0.04] ring-4 ring-laranja/10" : ""
                 }`}
               >
@@ -138,7 +147,8 @@ export function Board({
                   </p>
                 </header>
 
-                <ul className="flex flex-col gap-2">
+                {/* Cada coluna rola sozinha: com muitos cartões, a página não cresce sem fim. */}
+                <ul className="-mr-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1.5 [scrollbar-gutter:stable]">
                   {daColuna.map((cartao) => (
                     <CartaoNoBoard
                       key={cartao.id}
@@ -153,17 +163,23 @@ export function Board({
                   ))}
                 </ul>
 
-                <button
-                  type="button"
-                  onClick={() => setCriarEm(coluna)}
-                  className={`mt-auto flex items-center gap-2 rounded-cartao px-2.5 py-2 text-left text-sm text-fraco transition duration-150 ease-suave hover:bg-elevado hover:text-texto focus-visible:outline-2 focus-visible:outline-laranja ${
-                    daColuna.length === 0 ? "border border-dashed border-linha-forte" : ""
-                  }`}
-                  aria-label={`Adicionar cartão em ${coluna}`}
-                >
-                  <span aria-hidden="true" className="text-base leading-none">+</span>
-                  {daColuna.length === 0 ? "Adicionar ou soltar aqui" : "Adicionar cartão"}
-                </button>
+                {podeCriar ? (
+                  <button
+                    type="button"
+                    onClick={() => setCriarEm(coluna)}
+                    className={`mt-auto flex items-center gap-2 rounded-cartao px-2.5 py-2 text-left text-sm text-fraco transition duration-150 ease-suave hover:bg-elevado hover:text-texto focus-visible:outline-2 focus-visible:outline-laranja ${
+                      daColuna.length === 0 ? "border border-dashed border-linha-forte" : ""
+                    }`}
+                    aria-label={`Adicionar cartão em ${coluna}`}
+                  >
+                    <span aria-hidden="true" className="text-base leading-none">+</span>
+                    {daColuna.length === 0 ? "Adicionar ou soltar aqui" : "Adicionar cartão"}
+                  </button>
+                ) : (
+                  daColuna.length === 0 && (
+                    <p className="mt-auto rounded-cartao border border-dashed border-linha-forte px-2.5 py-2 text-sm text-fraco">Solte um cartão aqui</p>
+                  )
+                )}
               </li>
             );
           })}
@@ -173,6 +189,8 @@ export function Board({
       <NovoCartao projetoId={projetoId} coluna={criarEm} onFechar={() => setCriarEm(null)} onCriado={(texto) => avisar(texto)} />
       <DetalheCartao
         projetoId={projetoId}
+        podeEditar={podeCriar}
+        podeConduzir={pode(funcao, "conduzirVotacao")}
         cartao={detalhe}
         emVotacao={detalhe ? emVotacao.has(detalhe.id) : false}
         onFechar={() => setDetalheId(null)}
