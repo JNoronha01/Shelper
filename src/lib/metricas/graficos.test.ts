@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { metricasPorCartao, type EventoMetrica } from "./calculo";
-import { burndown, diasDoPeriodo, entregasPorDia, fluxoAcumulado, porPessoa, temposPorCartao, wipPorDia } from "./graficos";
+import {
+  burndown,
+  diasDoPeriodo,
+  entregasPorDia,
+  fluxoAcumulado,
+  filtrarPorPessoa,
+  porPessoa,
+  temposPorCartao,
+  wipPorDia,
+} from "./graficos";
 
 // Dois cartões: A anda pelo fluxo todo; B fica em Em andamento.
 // Horários em UTC; 15:00Z = 12:00 em Brasília (mesmo dia).
@@ -26,7 +35,15 @@ describe("séries dos gráficos", () => {
     expect(wipPorDia(f)[2]).toEqual({ dia: "2026-11-22", andamento: 1, revisao: 0 });
   });
   it("burndown desce quando o cartão chega em Concluído e deixa os dias futuros vazios", () => {
-    const b = burndown([{ id: "A", pontos: 5 }, { id: "B", pontos: 3 }], eventos, dias, "2026-11-22");
+    const b = burndown(
+      [
+        { id: "A", pontos: 5 },
+        { id: "B", pontos: 3 },
+      ],
+      eventos,
+      dias,
+      "2026-11-22",
+    );
     expect(b.map((p) => p.restante)).toEqual([8, 8, 3, null]);
     expect(b[0].ideal).toBe(8);
     expect(b[3].ideal).toBe(0);
@@ -39,7 +56,12 @@ describe("séries dos gráficos", () => {
     eventos,
   );
   it("throughput e velocity por dia", () => {
-    expect(entregasPorDia(metricas, dias).map((p) => [p.cartoes, p.pontos])).toEqual([[0, 0], [0, 0], [1, 5], [0, 0]]);
+    expect(entregasPorDia(metricas, dias).map((p) => [p.cartoes, p.pontos])).toEqual([
+      [0, 0],
+      [0, 0],
+      [1, 5],
+      [0, 0],
+    ]);
   });
   it("lead e cycle de cada cartão concluído no período", () => {
     expect(temposPorCartao(metricas, new Map([["A", "Login"]]), "2026-11-20", "2026-11-23")).toEqual([
@@ -64,5 +86,24 @@ describe("séries dos gráficos", () => {
       { nome: "Giovanni", cartoes: 1, pontos: 5, horasEstimadas: 12, horasUsadas: 8 },
       { nome: "Andryws", cartoes: 0, pontos: 0, horasEstimadas: 0, horasUsadas: 0 },
     ]);
+  });
+});
+
+describe("métricas por pessoa", () => {
+  it("fica só com os cartões da pessoa e os eventos deles", () => {
+    const cartoes = [
+      { id: "a", responsavelId: "ana" },
+      { id: "b", responsavelId: "bia" },
+      { id: "c", responsavelId: null },
+    ];
+    const eventos: EventoMetrica[] = [
+      { cartaoId: "a", de: null, para: "Backlog", em: "2026-11-01T12:00:00Z" },
+      { cartaoId: "b", de: null, para: "Backlog", em: "2026-11-01T12:00:00Z" },
+      { cartaoId: "a", de: "Backlog", para: "Em andamento", em: "2026-11-02T12:00:00Z" },
+    ];
+    const r = filtrarPorPessoa(cartoes, eventos, "ana");
+    expect(r.cartoes.map((c) => c.id)).toEqual(["a"]);
+    expect(r.eventos).toHaveLength(2);
+    expect(filtrarPorPessoa(cartoes, eventos, "ninguem").cartoes).toEqual([]);
   });
 });

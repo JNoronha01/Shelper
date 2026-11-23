@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { validarCadastro, validarLogin } from "@/lib/auth/validacao";
+import {
+  validarCadastro,
+  validarFoto,
+  validarLogin,
+  validarNomePerfil,
+  validarTrocaDeEmail,
+  validarTrocaDeSenha,
+} from "@/lib/auth/validacao";
 
 function formulario(campos: Record<string, string>): FormData {
   const form = new FormData();
@@ -36,9 +43,7 @@ describe("validarCadastro", () => {
   });
 
   it("rejeita senha com menos de 8 caracteres", () => {
-    const resultado = validarCadastro(
-      formulario({ ...cadastroValido, senha: "1234567", confirmacao: "1234567" }),
-    );
+    const resultado = validarCadastro(formulario({ ...cadastroValido, senha: "1234567", confirmacao: "1234567" }));
     expect(resultado).toEqual({
       ok: false,
       erros: { senha: "A senha precisa ter pelo menos 8 caracteres." },
@@ -46,9 +51,7 @@ describe("validarCadastro", () => {
   });
 
   it("aceita senha com exatamente 8 caracteres", () => {
-    const resultado = validarCadastro(
-      formulario({ ...cadastroValido, senha: "12345678", confirmacao: "12345678" }),
-    );
+    const resultado = validarCadastro(formulario({ ...cadastroValido, senha: "12345678", confirmacao: "12345678" }));
     expect(resultado.ok).toBe(true);
   });
 
@@ -77,5 +80,39 @@ describe("validarLogin", () => {
       ok: false,
       erros: { email: expect.any(String), senha: "Informe sua senha." },
     });
+  });
+});
+
+describe("editar perfil", () => {
+  const form = (dados: Record<string, string>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(dados)) f.set(k, v);
+    return f;
+  };
+  it("nome com pelo menos 2 letras e espaços normalizados", () => {
+    expect(validarNomePerfil(form({ nome: "  Jorge   Noronha " }))).toEqual({ ok: true, dados: { nome: "Jorge Noronha" } });
+    expect(validarNomePerfil(form({ nome: "J" })).ok).toBe(false);
+  });
+  it("troca de senha confere a atual, o tamanho e a repetição", () => {
+    expect(validarTrocaDeSenha(form({ atual: "senha-velha", nova: "senha-nova-1", confirmacao: "senha-nova-1" })).ok).toBe(true);
+    const r = validarTrocaDeSenha(form({ atual: "", nova: "curta", confirmacao: "outra" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.erros).sort()).toEqual(["atual", "confirmacao", "nova"]);
+    const igual = validarTrocaDeSenha(form({ atual: "mesma-senha", nova: "mesma-senha", confirmacao: "mesma-senha" }));
+    expect(igual.ok).toBe(false);
+  });
+  it("troca de e-mail pede um e-mail novo e válido e a senha", () => {
+    expect(validarTrocaDeEmail(form({ email: " Novo@Exemplo.com ", senha: "x" }), "velho@exemplo.com")).toEqual({
+      ok: true,
+      dados: { email: "novo@exemplo.com", senha: "x" },
+    });
+    expect(validarTrocaDeEmail(form({ email: "velho@exemplo.com", senha: "x" }), "velho@exemplo.com").ok).toBe(false);
+    expect(validarTrocaDeEmail(form({ email: "invalido", senha: "" }), "velho@exemplo.com").ok).toBe(false);
+  });
+  it("foto: só imagem até 1 MB", () => {
+    expect(validarFoto(new File([new Uint8Array(10)], "f.webp", { type: "image/webp" })).ok).toBe(true);
+    expect(validarFoto(new File([new Uint8Array(10)], "f.gif", { type: "image/gif" })).ok).toBe(false);
+    expect(validarFoto(new File([new Uint8Array(1024 * 1024 + 1)], "f.png", { type: "image/png" })).ok).toBe(false);
+    expect(validarFoto(null).ok).toBe(false);
   });
 });

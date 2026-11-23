@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition, type DragEvent } from "react";
 import { useAvisar } from "@/components/avisos";
+import { Avatar } from "@/components/avatar";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
 import type { Cartao, Membro, Votacao } from "@/lib/board/dados";
@@ -380,11 +381,8 @@ function CartaoNoBoard({
             !concluido && <span title="Sem horas estimadas">sem estimativa</span>
           )}
           {responsavel ? (
-            <span
-              className="grid size-6 place-items-center rounded-full border border-linha-forte bg-elevado text-[10px] font-semibold text-texto"
-              title={`Responsável: ${responsavel.nome}`}
-            >
-              {iniciais(responsavel.nome)}
+            <span className="flex items-center">
+              <Avatar nome={responsavel.nome} foto={responsavel.foto} tamanho="p" titulo={`Responsável: ${responsavel.nome}`} />
               <span className="sr-only">Responsável: {responsavel.nome}</span>
             </span>
           ) : (
@@ -397,12 +395,6 @@ function CartaoNoBoard({
       </div>
     </li>
   );
-}
-
-// "Jorge Noronha" -> "JN"; "Andryws" -> "A".
-export function iniciais(nome: string) {
-  const partes = nome.trim().split(/\s+/).filter(Boolean);
-  return ((partes[0]?.[0] ?? "?") + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
 }
 
 // Painel Atenção (PO e SM): cartões que passaram do tempo estimado ou estão bloqueados,

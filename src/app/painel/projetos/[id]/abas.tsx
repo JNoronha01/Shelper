@@ -5,6 +5,7 @@ export const ABAS = [
   { id: "board", rotulo: "Board" },
   { id: "sprint", rotulo: "Sprint" },
   { id: "metricas", rotulo: "Métricas" },
+  { id: "minhas", rotulo: "Minhas métricas" },
   { id: "votacao", rotulo: "Votação" },
   { id: "historico", rotulo: "Histórico" },
   { id: "time", rotulo: "Time" },

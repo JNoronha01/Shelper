@@ -22,7 +22,16 @@ import { eUuid } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
 import { abasDoPapel, NOME_DA_FUNCAO, pode, type Funcao } from "@/lib/board/papeis";
 import { diaLocal, metricasPorCartao } from "@/lib/metricas/calculo";
-import { burndown, diasDoPeriodo, entregasPorDia, fluxoAcumulado, porPessoa, temposPorCartao, wipPorDia } from "@/lib/metricas/graficos";
+import {
+  burndown,
+  diasDoPeriodo,
+  filtrarPorPessoa,
+  entregasPorDia,
+  fluxoAcumulado,
+  porPessoa,
+  temposPorCartao,
+  wipPorDia,
+} from "@/lib/metricas/graficos";
 import { horasDoContrato } from "@/lib/board/gargalo";
 
 const formatarNumero = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
@@ -139,8 +148,11 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           <SprintsEncerradas sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
         </div>
       )}
-      {aba === "metricas" && (
+      {(aba === "metricas" || aba === "minhas") && (
         <AbaMetricas
+          aba={aba}
+          // Dev: sempre ele mesmo. PO e SM: a pessoa do filtro, se for do time.
+          pessoa={aba === "minhas" ? usuario.id : dados.time.find((m) => m.usuarioId === consulta.pessoa)?.usuarioId}
           projetoId={projeto.id}
           cartoes={cartoes}
           sprints={sprints}
@@ -152,14 +164,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
         />
       )}
       {aba === "historico" && (
-        <AbaHistorico
-          projetoId={projeto.id}
-          consulta={consulta}
-          sprints={sprints}
-          time={dados.time}
-          cartoes={cartoes}
-          meuId={usuario.id}
-        />
+        <AbaHistorico projetoId={projeto.id} consulta={consulta} sprints={sprints} time={dados.time} cartoes={cartoes} meuId={usuario.id} />
       )}
       {aba === "votacao" && (
         <AbaVotacao
@@ -180,8 +185,10 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
 
 // Só carrega todos os eventos quando a aba Métricas é aberta.
 async function AbaMetricas({
+  aba,
+  pessoa,
   projetoId,
-  cartoes,
+  cartoes: cartoesDoProjeto,
   sprints,
   metas,
   escolhida,
@@ -189,6 +196,8 @@ async function AbaMetricas({
   time,
   limites,
 }: {
+  aba: "metricas" | "minhas";
+  pessoa: string | undefined;
   projetoId: string;
   cartoes: Cartao[];
   sprints: Sprint[];
@@ -198,7 +207,11 @@ async function AbaMetricas({
   time: Membro[];
   limites: LimitesWip;
 }) {
-  const eventos = await carregarEventosParaCalculo(projetoId);
+  const eventosDoProjeto = await carregarEventosParaCalculo(projetoId);
+  const { cartoes, eventos } = pessoa
+    ? filtrarPorPessoa(cartoesDoProjeto, eventosDoProjeto, pessoa)
+    : { cartoes: cartoesDoProjeto, eventos: eventosDoProjeto };
+  const quem = pessoa ? (time.find((m) => m.usuarioId === pessoa) ?? null) : null;
   const sprint = sprints.find((s) => s.id === escolhida);
   const periodo = sprint ? { inicio: sprint.inicio, fim: sprint.fim } : PERIODO_TUDO;
   const painel = montarPainel(cartoes, eventos, periodo, metas, agora);
@@ -217,10 +230,18 @@ async function AbaMetricas({
   const fluxo = fluxoAcumulado(eventos, dias);
   const dados: DadosGraficos = {
     sprintEscolhida: Boolean(sprint),
+    individual: Boolean(pessoa),
     fluxo,
     wip: wipPorDia(fluxo),
     limites: { andamento: limites.wipAndamento, revisao: limites.wipRevisao },
-    burndown: sprint ? burndown(cartoes.filter((c) => c.sprintId === sprint.id), eventos, dias, hoje) : null,
+    burndown: sprint
+      ? burndown(
+          cartoes.filter((c) => c.sprintId === sprint.id),
+          eventos,
+          dias,
+          hoje,
+        )
+      : null,
     entregas: entregasPorDia(metricas, dias),
     tempos: temposPorCartao(metricas, new Map(cartoes.map((c) => [c.id, c.titulo])), inicioDias, fimDias),
     metas: { leadDias: metas.leadDias, cycleHoras: metas.cycleHoras },
@@ -229,7 +250,16 @@ async function AbaMetricas({
 
   return (
     <>
-      <Metricas projetoId={projetoId} painel={painel} metas={metas} sprints={sprints} escolhida={sprint ? sprint.id : "tudo"} />
+      <Metricas
+        projetoId={projetoId}
+        painel={painel}
+        metas={metas}
+        sprints={sprints}
+        escolhida={sprint ? sprint.id : "tudo"}
+        aba={aba}
+        pessoa={quem ? { id: quem.usuarioId, nome: quem.nome } : pessoa ? { id: pessoa, nome: "você" } : null}
+        time={time}
+      />
       <Graficos dados={dados} />
     </>
   );

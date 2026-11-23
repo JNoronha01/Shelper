@@ -32,6 +32,8 @@ const EIXO = { fill: "#a8a8a8", fontSize: 12 };
 
 export type DadosGraficos = {
   sprintEscolhida: boolean;
+  // Métricas de uma pessoa: WIP (limite é do time) e os gráficos por pessoa não se aplicam.
+  individual: boolean;
   fluxo: PontoFluxo[];
   wip: PontoWip[];
   limites: { andamento: number; revisao: number };
@@ -57,7 +59,10 @@ const GRAFICOS: { id: IdGrafico; rotulo: string }[] = [
 const diaCurto = (dia: string) => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
 
 export function Graficos({ dados }: { dados: DadosGraficos }) {
-  const disponiveis = GRAFICOS.filter((g) => g.id !== "burndown" || dados.sprintEscolhida);
+  const SO_DO_TIME: IdGrafico[] = ["wip", "pessoas", "horas"];
+  const disponiveis = GRAFICOS.filter(
+    (g) => (g.id !== "burndown" || dados.sprintEscolhida) && !(dados.individual && SO_DO_TIME.includes(g.id)),
+  );
   const [atual, setAtual] = useState<IdGrafico>(dados.sprintEscolhida ? "burndown" : "fluxo");
   const escolhido = disponiveis.some((g) => g.id === atual) ? atual : disponiveis[0].id;
 
@@ -82,7 +87,9 @@ export function Graficos({ dados }: { dados: DadosGraficos }) {
             aria-selected={g.id === escolhido}
             onClick={() => setAtual(g.id)}
             className={`shrink-0 rounded-lg border px-3 py-1.5 text-sm transition duration-150 ease-suave focus-visible:outline-2 focus-visible:outline-laranja ${
-              g.id === escolhido ? "border-linha-forte bg-elevado text-texto" : "border-transparent text-suave hover:bg-elevado/50 hover:text-texto"
+              g.id === escolhido
+                ? "border-linha-forte bg-elevado text-texto"
+                : "border-transparent text-suave hover:bg-elevado/50 hover:text-texto"
             }`}
           >
             {g.rotulo}
@@ -232,8 +239,26 @@ function Burndown({ pontos }: { pontos: PontoBurndown[] }) {
           {eixos()}
           <Tooltip content={(p) => <Dica {...p} formatarRotulo={diaCurto} unidade="pts" />} cursor={{ stroke: "#3d3d3d" }} />
           {legenda}
-          <Line isAnimationActive={false} type="linear" dataKey="ideal" name="Ideal" stroke={NEUTRO} strokeWidth={2} strokeDasharray="5 5" dot={false} />
-          <Line isAnimationActive={false} type="linear" dataKey="restante" name="Faltam" stroke={SERIE[0]} strokeWidth={2} dot={{ r: 4, strokeWidth: 2, stroke: "#181818" }} connectNulls={false} />
+          <Line
+            isAnimationActive={false}
+            type="linear"
+            dataKey="ideal"
+            name="Ideal"
+            stroke={NEUTRO}
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            dot={false}
+          />
+          <Line
+            isAnimationActive={false}
+            type="linear"
+            dataKey="restante"
+            name="Faltam"
+            stroke={SERIE[0]}
+            strokeWidth={2}
+            dot={{ r: 4, strokeWidth: 2, stroke: "#181818" }}
+            connectNulls={false}
+          />
         </LineChart>
       </ResponsiveContainer>
     </Moldura>
@@ -305,7 +330,10 @@ function Entregas({ pontos }: { pontos: PontoEntrega[] }) {
         <ResponsiveContainer>
           <BarChart data={pontos} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             {eixos()}
-            <Tooltip content={(p) => <Dica {...p} formatarRotulo={diaCurto} unidade="pts" />} cursor={{ fill: "rgb(255 255 255 / 0.04)" }} />
+            <Tooltip
+              content={(p) => <Dica {...p} formatarRotulo={diaCurto} unidade="pts" />}
+              cursor={{ fill: "rgb(255 255 255 / 0.04)" }}
+            />
             <Bar isAnimationActive={false} dataKey="pontos" name="Pontos" fill={SERIE[0]} radius={[4, 4, 0, 0]} maxBarSize={28} />
           </BarChart>
         </ResponsiveContainer>
@@ -329,8 +357,24 @@ function Wip({ pontos, limites }: { pontos: PontoWip[]; limites: { andamento: nu
           {legenda}
           <ReferenceLine y={limites.andamento} stroke={SERIE[0]} strokeDasharray="4 4" strokeOpacity={0.7} />
           <ReferenceLine y={limites.revisao} stroke={SERIE[1]} strokeDasharray="4 4" strokeOpacity={0.7} />
-          <Line isAnimationActive={false} type="stepAfter" dataKey="andamento" name="Em andamento" stroke={SERIE[0]} strokeWidth={2} dot={false} />
-          <Line isAnimationActive={false} type="stepAfter" dataKey="revisao" name="Em revisão" stroke={SERIE[1]} strokeWidth={2} dot={false} />
+          <Line
+            isAnimationActive={false}
+            type="stepAfter"
+            dataKey="andamento"
+            name="Em andamento"
+            stroke={SERIE[0]}
+            strokeWidth={2}
+            dot={false}
+          />
+          <Line
+            isAnimationActive={false}
+            type="stepAfter"
+            dataKey="revisao"
+            name="Em revisão"
+            stroke={SERIE[1]}
+            strokeWidth={2}
+            dot={false}
+          />
         </LineChart>
       </ResponsiveContainer>
     </Moldura>
@@ -338,16 +382,31 @@ function Wip({ pontos, limites }: { pontos: PontoWip[]; limites: { andamento: nu
 }
 
 function Tempos({ pontos, metas }: { pontos: PontoCartao[]; metas: { leadDias: number | null; cycleHoras: number | null } }) {
-  const tabela = { colunas: ["Cartão", "Concluído", "Lead Time (dias)", "Cycle Time (h)"], linhas: pontos.map((p) => [p.titulo, diaCurto(p.dia), p.leadDias ?? "–", p.cycleHoras ?? "–"]) };
+  const tabela = {
+    colunas: ["Cartão", "Concluído", "Lead Time (dias)", "Cycle Time (h)"],
+    linhas: pontos.map((p) => [p.titulo, diaCurto(p.dia), p.leadDias ?? "–", p.cycleHoras ?? "–"]),
+  };
   const vazio = pontos.length === 0 && "Nenhum cartão concluído no período.";
   const curto = (t: string) => (t.length > 14 ? `${t.slice(0, 13)}…` : t);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Moldura titulo="Lead Time por cartão" explicacao={`Dias da criação até concluir.${metas.leadDias ? ` Linha tracejada: meta de ${metas.leadDias} dias.` : ""}`} tabela={tabela} vazio={vazio}>
+      <Moldura
+        titulo="Lead Time por cartão"
+        explicacao={`Dias da criação até concluir.${metas.leadDias ? ` Linha tracejada: meta de ${metas.leadDias} dias.` : ""}`}
+        tabela={tabela}
+        vazio={vazio}
+      >
         <ResponsiveContainer>
           <BarChart data={pontos} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid stroke={GRADE} vertical={false} />
-            <XAxis dataKey="titulo" tickFormatter={curto} tick={EIXO} axisLine={{ stroke: GRADE }} tickLine={false} interval="preserveStartEnd" />
+            <XAxis
+              dataKey="titulo"
+              tickFormatter={curto}
+              tick={EIXO}
+              axisLine={{ stroke: GRADE }}
+              tickLine={false}
+              interval="preserveStartEnd"
+            />
             <YAxis tick={EIXO} axisLine={false} tickLine={false} width={36} />
             <Tooltip content={(p) => <Dica {...p} unidade="dias" />} cursor={{ fill: "rgb(255 255 255 / 0.04)" }} />
             {metas.leadDias && <ReferenceLine y={metas.leadDias} stroke={NEUTRO} strokeDasharray="5 5" />}
@@ -355,11 +414,23 @@ function Tempos({ pontos, metas }: { pontos: PontoCartao[]; metas: { leadDias: n
           </BarChart>
         </ResponsiveContainer>
       </Moldura>
-      <Moldura titulo="Cycle Time por cartão" explicacao={`Horas do início do trabalho até concluir.${metas.cycleHoras ? ` Linha tracejada: meta de ${metas.cycleHoras} h.` : ""}`} tabela={tabela} vazio={vazio}>
+      <Moldura
+        titulo="Cycle Time por cartão"
+        explicacao={`Horas do início do trabalho até concluir.${metas.cycleHoras ? ` Linha tracejada: meta de ${metas.cycleHoras} h.` : ""}`}
+        tabela={tabela}
+        vazio={vazio}
+      >
         <ResponsiveContainer>
           <BarChart data={pontos} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid stroke={GRADE} vertical={false} />
-            <XAxis dataKey="titulo" tickFormatter={curto} tick={EIXO} axisLine={{ stroke: GRADE }} tickLine={false} interval="preserveStartEnd" />
+            <XAxis
+              dataKey="titulo"
+              tickFormatter={curto}
+              tick={EIXO}
+              axisLine={{ stroke: GRADE }}
+              tickLine={false}
+              interval="preserveStartEnd"
+            />
             <YAxis tick={EIXO} axisLine={false} tickLine={false} width={36} />
             <Tooltip content={(p) => <Dica {...p} unidade="h" />} cursor={{ fill: "rgb(255 255 255 / 0.04)" }} />
             {metas.cycleHoras && <ReferenceLine y={metas.cycleHoras} stroke={NEUTRO} strokeDasharray="5 5" />}

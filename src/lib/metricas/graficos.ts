@@ -118,7 +118,9 @@ export function porPessoa(
   fim: string,
 ): PontoPessoa[] {
   const concluidoNoPeriodo = new Map(
-    metricas.filter((m) => m.concluidoEm && diaLocal(m.concluidoEm) >= inicio && diaLocal(m.concluidoEm) <= fim).map((m) => [m.cartaoId, m]),
+    metricas
+      .filter((m) => m.concluidoEm && diaLocal(m.concluidoEm) >= inicio && diaLocal(m.concluidoEm) <= fim)
+      .map((m) => [m.cartaoId, m]),
   );
   const linhas = [...time, { usuarioId: "", nome: "Sem responsável" }].map((p) => {
     const dele = cartoes.filter((c) => (c.responsavelId ?? "") === p.usuarioId);
@@ -133,4 +135,15 @@ export function porPessoa(
   });
   // "Sem responsável" só aparece se tiver algo.
   return linhas.filter((l) => l.nome !== "Sem responsável" || l.cartoes > 0 || l.horasEstimadas > 0);
+}
+
+// Métricas de uma pessoa: só os cartões em que ela é a responsável, e os eventos desses cartões.
+export function filtrarPorPessoa<C extends { id: string; responsavelId: string | null }>(
+  cartoes: C[],
+  eventos: EventoMetrica[],
+  pessoa: string,
+): { cartoes: C[]; eventos: EventoMetrica[] } {
+  const dela = cartoes.filter((c) => c.responsavelId === pessoa);
+  const ids = new Set(dela.map((c) => c.id));
+  return { cartoes: dela, eventos: eventos.filter((e) => ids.has(e.cartaoId)) };
 }

@@ -53,7 +53,7 @@ export type Votacao = {
 // valor = null quando o voto ainda está escondido (votação aberta e o voto é de outra pessoa).
 export type Voto = { votacaoId: string; usuarioId: string; nome: string; valor: number | null };
 
-export type Membro = { usuarioId: string; nome: string; email: string; funcao: Funcao; entrouEm: string };
+export type Membro = { usuarioId: string; nome: string; email: string; funcao: Funcao; entrouEm: string; foto: string | null };
 
 export type Convite = { codigo: string; expiraEm: string };
 
@@ -196,7 +196,7 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
   // Sem linha = projeto inexistente ou de outro time (o RLS esconde).
   if (!projeto.data) return null;
 
-  const listaMembros = (membros.data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string }[];
+  const listaMembros = (membros.data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string; foto: string | null }[];
   const inicioPorCartao = new Map<string, string>();
   for (const e of (inicios.data ?? []) as { cartao_id: string; em: string }[]) {
     const atual = inicioPorCartao.get(e.cartao_id);
@@ -251,7 +251,7 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
     })),
     funcao: eu.funcao,
     membros: listaMembros.length,
-    time: listaMembros.map((m) => ({ usuarioId: m.usuario_id, nome: m.nome, email: m.email, funcao: m.funcao, entrouEm: m.entrou_em })),
+    time: listaMembros.map((m) => ({ usuarioId: m.usuario_id, nome: m.nome, email: m.email, funcao: m.funcao, entrouEm: m.entrou_em, foto: m.foto })),
     cartoes: (cartoes.data ?? [])
       .filter((c) => eColuna(c.coluna_atual))
       .map((c) => ({
@@ -321,12 +321,13 @@ export async function carregarMembros(projetoId: string): Promise<Membro[]> {
   const supabase = await criarClienteServidor();
   const { data, error } = await supabase.rpc("listar_time", { p_projeto: projetoId });
   if (error) falhar("os membros", error.code);
-  return ((data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string }[]).map((m) => ({
+  return ((data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string; foto: string | null }[]).map((m) => ({
     usuarioId: m.usuario_id,
     nome: m.nome,
     email: m.email,
     funcao: m.funcao,
     entrouEm: m.entrou_em,
+    foto: m.foto,
   }));
 }
 
@@ -414,4 +415,12 @@ export async function carregarHistorico(
       em: l.em,
     })),
   };
+}
+
+// Perfil do próprio usuário (o RLS de perfis só deixa ler o próprio).
+export async function carregarMeuPerfil(usuarioId: string): Promise<{ nome: string; email: string; foto: string | null } | null> {
+  const supabase = await criarClienteServidor();
+  const { data, error } = await supabase.from("perfis").select("nome, email, foto").eq("id", usuarioId).maybeSingle();
+  if (error) falhar("o perfil", error.code);
+  return data;
 }
