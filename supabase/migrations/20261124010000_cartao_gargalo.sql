@@ -19,6 +19,24 @@ alter table public.cartoes add constraint cartoes_bloqueio_valido check (
 );
 create index if not exists cartoes_responsavel_idx on public.cartoes (responsavel_id);
 
+-- Outros acontecimentos do cartão que aparecem no Histórico (os movimentos entre colunas
+-- continuam na tabela eventos, que é a base das métricas).
+create table if not exists public.atividades (
+  id bigint generated always as identity primary key,
+  cartao_id uuid not null references public.cartoes (id) on delete cascade,
+  usuario_id uuid references auth.users (id) on delete set null,
+  tipo text not null check (tipo in ('bloqueio', 'desbloqueio', 'responsavel')),
+  detalhe text,
+  em timestamptz not null default now()
+);
+create index if not exists atividades_cartao_idx on public.atividades (cartao_id, em desc);
+alter table public.atividades enable row level security;
+drop policy if exists "atividades: membros leem" on public.atividades;
+create policy "atividades: membros leem" on public.atividades
+  for select to authenticated using (
+    exists (select 1 from public.cartoes c where c.id = atividades.cartao_id and public.eh_membro(c.projeto_id))
+  );
+
 -- Confere se a pessoa é do projeto (para ser responsável por um cartão dele).
 create or replace function public.eh_membro_de(p_projeto uuid, p_usuario uuid)
 returns boolean
@@ -113,7 +131,15 @@ begin
       raise exception 'Você pode pegar um cartão sem responsável ou largar um cartão seu. Para outras trocas, fale com o PO ou o SM.' using errcode = '42501';
     end if;
   end if;
+  if p_usuario is not distinct from v_atual then
+    return;
+  end if;
   update public.cartoes set responsavel_id = p_usuario where id = p_cartao;
+  insert into public.atividades (cartao_id, usuario_id, tipo, detalhe)
+  values (
+    p_cartao, v_eu, 'responsavel',
+    coalesce((select nome from public.perfis where id = p_usuario), case when p_usuario is null then null else 'Sem nome' end)
+  );
 end;
 $$;
 
@@ -147,11 +173,32 @@ begin
       raise exception 'Escreva o motivo do bloqueio (até 300 caracteres).' using errcode = '22023';
     end if;
     update public.cartoes set bloqueado = true, motivo_bloqueio = v_motivo, bloqueado_em = now() where id = p_cartao;
+    insert into public.atividades (cartao_id, usuario_id, tipo, detalhe) values (p_cartao, v_eu, 'bloqueio', v_motivo);
   else
-    update public.cartoes set bloqueado = false, motivo_bloqueio = null, bloqueado_em = null where id = p_cartao;
+    update public.cartoes set bloqueado = false, motivo_bloqueio = null, bloqueado_em = null where id = p_cartao and bloqueado;
+    if found then
+      insert into public.atividades (cartao_id, usuario_id, tipo) values (p_cartao, v_eu, 'desbloqueio');
+    end if;
   end if;
 end;
 $$;
+
+-- Histórico único (movimentos + outras atividades), para filtrar e paginar no banco.
+-- security_invoker: a view respeita o RLS de quem consulta (só projetos dos quais é membro).
+create or replace view public.historico
+with (security_invoker = true) as
+  select 'e' || e.id::text as id, 'movimento'::text as tipo, c.projeto_id, e.cartao_id, c.titulo as cartao_titulo,
+         e.usuario_id, e.de_coluna, e.para_coluna, e.acima_do_wip, null::text as detalhe, e.em
+    from public.eventos e
+    join public.cartoes c on c.id = e.cartao_id
+  union all
+  select 'a' || a.id::text, a.tipo, c.projeto_id, a.cartao_id, c.titulo,
+         a.usuario_id, null, null, false, a.detalhe, a.em
+    from public.atividades a
+    join public.cartoes c on c.id = a.cartao_id;
+
+revoke all on public.historico from anon;
+grant select on public.historico to authenticated;
 
 do $$
 declare
