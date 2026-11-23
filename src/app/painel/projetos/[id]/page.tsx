@@ -8,9 +8,11 @@ import {
   carregarBoard,
   carregarConvite,
   carregarEventosParaCalculo,
+  carregarHistorico,
   carregarMembros,
   carregarVotos,
   type Cartao,
+  type Membro,
   type Metas,
   type Sprint,
   type Votacao,
@@ -47,7 +49,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
   // Projeto de outro time aparece como inexistente: o RLS não devolve a linha.
   if (!dados) notFound();
 
-  const { projeto, funcao, membros, cartoes, eventos, sprints, metas, votacoes } = dados;
+  const { projeto, funcao, membros, cartoes, sprints, metas, votacoes } = dados;
   // Cada papel vê só as abas que usa; uma aba de fora (link antigo) cai no Board.
   const visiveis = abasDoPapel(funcao);
   const aba: IdAba = eAba(consulta.aba) && visiveis.includes(consulta.aba) ? consulta.aba : "board";
@@ -145,7 +147,16 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           agora={agora}
         />
       )}
-      {aba === "historico" && <Historico eventos={eventos} />}
+      {aba === "historico" && (
+        <AbaHistorico
+          projetoId={projeto.id}
+          consulta={consulta}
+          sprints={sprints}
+          time={dados.time}
+          cartoes={cartoes}
+          meuId={usuario.id}
+        />
+      )}
       {aba === "votacao" && (
         <AbaVotacao
           projetoId={projeto.id}
@@ -184,6 +195,48 @@ async function AbaMetricas({
   const periodo = sprint ? { inicio: sprint.inicio, fim: sprint.fim } : PERIODO_TUDO;
   const painel = montarPainel(cartoes, eventos, periodo, metas, agora);
   return <Metricas projetoId={projetoId} painel={painel} metas={metas} sprints={sprints} escolhida={sprint ? sprint.id : "tudo"} />;
+}
+
+// Histórico paginado e filtrado no banco; os filtros vêm do endereço da página.
+async function AbaHistorico({
+  projetoId,
+  consulta,
+  sprints,
+  time,
+  cartoes,
+  meuId,
+}: {
+  projetoId: string;
+  consulta: Record<string, string | string[] | undefined>;
+  sprints: Sprint[];
+  time: Membro[];
+  cartoes: Cartao[];
+  meuId: string;
+}) {
+  const texto = (k: string) => (typeof consulta[k] === "string" ? (consulta[k] as string) : undefined);
+  const sprint = sprints.find((s) => s.id === texto("sprint"));
+  const pessoa = time.find((m) => m.usuarioId === texto("pessoa"))?.usuarioId;
+  const cartao = cartoes.find((c) => c.id === texto("cartao"))?.id;
+  const acima = texto("wip") === "acima";
+  const pagina = Math.max(1, Math.min(10_000, Number.parseInt(texto("pagina") ?? "1", 10) || 1));
+  const { itens, total } = await carregarHistorico(
+    projetoId,
+    { sprint: sprint ? { inicio: sprint.inicio, fim: sprint.fim } : undefined, pessoa, cartao, acimaDoWip: acima },
+    pagina,
+  );
+  return (
+    <Historico
+      projetoId={projetoId}
+      itens={itens}
+      total={total}
+      pagina={pagina}
+      filtros={{ sprint: sprint?.id, pessoa, cartao, wip: acima ? "acima" : undefined }}
+      sprints={sprints}
+      time={time}
+      cartoes={cartoes}
+      meuId={meuId}
+    />
+  );
 }
 
 // Os votos só são carregados na aba Votação (a função do banco esconde os votos dos outros até revelar).

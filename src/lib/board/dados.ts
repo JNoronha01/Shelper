@@ -349,3 +349,69 @@ export async function carregarVotos(projetoId: string): Promise<Voto[]> {
     valor: v.valor,
   }));
 }
+
+// ---------------------------------------------------------------- Histórico paginado
+
+export const ITENS_POR_PAGINA = 20;
+
+export type ItemHistorico = {
+  id: string;
+  tipo: "movimento" | "bloqueio" | "desbloqueio" | "responsavel";
+  cartaoId: string;
+  cartaoTitulo: string;
+  usuarioId: string | null;
+  de: Coluna | null;
+  para: Coluna | null;
+  acimaDoWip: boolean;
+  detalhe: string | null;
+  em: string;
+};
+
+export type FiltrosHistorico = {
+  sprint?: { inicio: string; fim: string };
+  pessoa?: string;
+  cartao?: string;
+  acimaDoWip?: boolean;
+};
+
+// Lê a view "historico" (movimentos + outras atividades), já filtrada e paginada no banco.
+export async function carregarHistorico(
+  projetoId: string,
+  filtros: FiltrosHistorico,
+  pagina: number,
+): Promise<{ itens: ItemHistorico[]; total: number }> {
+  const supabase = await criarClienteServidor();
+  const inicio = (pagina - 1) * ITENS_POR_PAGINA;
+  let consulta = supabase
+    .from("historico")
+    .select("id, tipo, cartao_id, cartao_titulo, usuario_id, de_coluna, para_coluna, acima_do_wip, detalhe, em", { count: "exact" })
+    .eq("projeto_id", projetoId);
+  if (filtros.pessoa) consulta = consulta.eq("usuario_id", filtros.pessoa);
+  if (filtros.cartao) consulta = consulta.eq("cartao_id", filtros.cartao);
+  if (filtros.acimaDoWip) consulta = consulta.eq("acima_do_wip", true);
+  if (filtros.sprint) {
+    // Dias da Sprint no horário de Brasília: do início às 00:00 até o fim às 23:59.
+    const depois = new Date(`${filtros.sprint.fim}T00:00:00Z`);
+    depois.setUTCDate(depois.getUTCDate() + 1);
+    consulta = consulta
+      .gte("em", `${filtros.sprint.inicio}T00:00:00-03:00`)
+      .lt("em", `${depois.toISOString().slice(0, 10)}T00:00:00-03:00`);
+  }
+  const { data, error, count } = await consulta.order("em", { ascending: false }).range(inicio, inicio + ITENS_POR_PAGINA - 1);
+  if (error) falhar("o histórico", error.code);
+  return {
+    total: count ?? 0,
+    itens: (data ?? []).map((l) => ({
+      id: l.id,
+      tipo: l.tipo,
+      cartaoId: l.cartao_id,
+      cartaoTitulo: l.cartao_titulo,
+      usuarioId: l.usuario_id,
+      de: eColuna(l.de_coluna) ? l.de_coluna : null,
+      para: eColuna(l.para_coluna) ? l.para_coluna : null,
+      acimaDoWip: l.acima_do_wip,
+      detalhe: l.detalhe,
+      em: l.em,
+    })),
+  };
+}
