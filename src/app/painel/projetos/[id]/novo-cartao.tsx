@@ -6,6 +6,8 @@ import { Modal } from "@/components/modal";
 import { Seletor } from "@/components/seletor";
 import { DESCRICAO_MAXIMO, TITULO_MAXIMO } from "@/lib/board/regras";
 import { COLUNAS, type Coluna } from "@/lib/colunas";
+import type { Membro } from "@/lib/board/dados";
+import { SIGLA_DA_FUNCAO } from "@/lib/board/papeis";
 import { criarCartao } from "../../acoes";
 import { ESTADO_INICIAL, type EstadoAcao } from "../../estado";
 import { Erro, SeletorDePontos } from "./campos-cartao";
@@ -17,15 +19,17 @@ export function NovoCartao({
   coluna,
   onFechar,
   onCriado,
+  time,
 }: {
   projetoId: string;
   coluna: Coluna | null;
   onFechar: () => void;
   onCriado: (mensagem: string) => void;
+  time: Membro[];
 }) {
   return (
     <Modal aberto={coluna !== null} onFechar={onFechar} titulo="Novo cartão">
-      {coluna && <Formulario projetoId={projetoId} colunaInicial={coluna} onFechar={onFechar} onCriado={onCriado} />}
+      {coluna && <Formulario projetoId={projetoId} colunaInicial={coluna} onFechar={onFechar} onCriado={onCriado} time={time} />}
     </Modal>
   );
 }
@@ -35,11 +39,13 @@ function Formulario({
   colunaInicial,
   onFechar,
   onCriado,
+  time,
 }: {
   projetoId: string;
   colunaInicial: Coluna;
   onFechar: () => void;
   onCriado: (mensagem: string) => void;
+  time: Membro[];
 }) {
   const [estado, acao, enviando] = useActionState(async (anterior: EstadoAcao, form: FormData) => {
     const r = await criarCartao(anterior, form);
@@ -92,6 +98,39 @@ function Formulario({
           </label>
           <SeletorDePontos id="novo-pontos" padrao={v?.pontos || "3"} erro={estado.erros?.pontos} />
           <Erro id="novo-pontos-erro" texto={estado.erros?.pontos} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="novo-horas" className="text-sm font-medium">
+            Horas estimadas
+          </label>
+          <input
+            id="novo-horas"
+            name="horas"
+            inputMode="decimal"
+            placeholder="Ex.: 4 ou 2,5"
+            defaultValue={v?.horas}
+            aria-invalid={estado.erros?.horas ? true : undefined}
+            aria-describedby={estado.erros?.horas ? "novo-horas-erro" : "novo-horas-dica"}
+            className={CAMPO}
+          />
+          {estado.erros?.horas ? (
+            <Erro id="novo-horas-erro" texto={estado.erros.horas} />
+          ) : (
+            <p id="novo-horas-dica" className="text-xs text-suave">
+              Passou disso desde Em andamento, o cartão vira gargalo.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="novo-responsavel" className="text-sm font-medium">
+            Responsável
+          </label>
+          <Seletor
+            id="novo-responsavel"
+            name="responsavel"
+            padrao={v?.responsavel ?? ""}
+            opcoes={[{ valor: "", rotulo: "Sem responsável" }, ...time.map((m) => ({ valor: m.usuarioId, rotulo: m.nome, detalhe: SIGLA_DA_FUNCAO[m.funcao] }))]}
+          />
         </div>
       </div>
 

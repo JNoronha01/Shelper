@@ -20,6 +20,9 @@ import { eUuid } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
 import { abasDoPapel, NOME_DA_FUNCAO, pode, type Funcao } from "@/lib/board/papeis";
 import { diaLocal } from "@/lib/metricas/calculo";
+import { horasDoContrato } from "@/lib/board/gargalo";
+
+const formatarNumero = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 import { montarPainel, PERIODO_TUDO } from "@/lib/metricas/painel";
 import { Abas, eAba, type IdAba } from "./abas";
 import { Board } from "./board";
@@ -55,6 +58,8 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
   const backlog = cartoes.filter((c) => c.coluna === "Backlog");
   const pontosTotais = cartoes.reduce((s, c) => s + c.pontos, 0);
   const pontosConcluidos = concluidos.reduce((s, c) => s + c.pontos, 0);
+  // Horas do contrato: as estimadas dos cartões concluídos contam como usadas.
+  const horas = horasDoContrato(cartoes);
 
   return (
     <>
@@ -74,6 +79,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
             ["Cartões", String(cartoes.length)],
             ["Concluídos", String(concluidos.length)],
             ["Pontos feitos", `${pontosConcluidos}/${pontosTotais}`],
+            ["Horas usadas", `${formatarNumero(horas.usadas)}/${projeto.horasContratadas ?? "?"} h`],
           ].map(([rotulo, valor]) => (
             <div key={rotulo} className="flex flex-col px-4 py-2">
               <dt className="text-xs text-suave">{rotulo}</dt>
@@ -96,7 +102,16 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
               </Link>
             </p>
           )}
-          <Board projetoId={projeto.id} limites={limites} cartoes={cartoes} votacoes={votacoes} funcao={funcao} />
+          <Board
+            projetoId={projeto.id}
+            limites={limites}
+            cartoes={cartoes}
+            votacoes={votacoes}
+            funcao={funcao}
+            time={dados.time}
+            agora={agora}
+            meuId={usuario.id}
+          />
         </>
       )}
 
@@ -143,7 +158,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
         />
       )}
       {aba === "time" && <AbaTime projetoId={projeto.id} funcao={funcao} meuId={usuario.id} agora={agora} />}
-      {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} />}
+      {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} />}
     </>
   );
 }

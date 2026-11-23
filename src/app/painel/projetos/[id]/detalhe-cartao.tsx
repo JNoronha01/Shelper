@@ -4,9 +4,23 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, BOTAO_TEXTO, CAIXA, CAMPO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
-import type { Cartao } from "@/lib/board/dados";
-import { DESCRICAO_MAXIMO, ITEM_CHECKLIST_MAXIMO, TITULO_MAXIMO, formatarDataHora } from "@/lib/board/regras";
-import { abrirVotacao, adicionarItem, editarCartao, marcarItem, removerItem, salvarDescricao } from "../../acoes";
+import { useAvisar } from "@/components/avisos";
+import { Seletor } from "@/components/seletor";
+import type { Cartao, Membro } from "@/lib/board/dados";
+import { formatarDuracao, prazoDoCartao } from "@/lib/board/gargalo";
+import { SIGLA_DA_FUNCAO } from "@/lib/board/papeis";
+import { DESCRICAO_MAXIMO, ITEM_CHECKLIST_MAXIMO, MOTIVO_MAXIMO, TITULO_MAXIMO, formatarDataHora } from "@/lib/board/regras";
+import {
+  abrirVotacao,
+  adicionarItem,
+  bloquearCartao,
+  definirResponsavel,
+  desbloquearCartao,
+  editarCartao,
+  marcarItem,
+  removerItem,
+  salvarDescricao,
+} from "../../acoes";
 import { ESTADO_INICIAL } from "../../estado";
 import { Erro, SeletorDePontos } from "./campos-cartao";
 
@@ -19,14 +33,20 @@ export function DetalheCartao({
   onFechar,
   podeEditar,
   podeConduzir,
+  time,
+  meuId,
+  agora,
 }: {
   projetoId: string;
   cartao: Cartao | null;
   emVotacao: boolean;
   onFechar: () => void;
-  // PO: título e pontos. PO e SM: abrir a votação. Todos: descrição e checklist.
+  // PO: título, pontos e horas. PO e SM: responsável de qualquer um e votação. Todos: descrição e checklist.
   podeEditar: boolean;
   podeConduzir: boolean;
+  time: Membro[];
+  meuId: string;
+  agora: string;
 }) {
   return (
     <Modal aberto={cartao !== null} onFechar={onFechar} titulo={cartao?.titulo ?? ""} largura="max-w-2xl">
@@ -37,14 +57,19 @@ export function DetalheCartao({
             Em <strong className="font-medium text-texto">{cartao.coluna}</strong> · criado em{" "}
             {formatarDataHora(cartao.criadoEm)}
           </p>
+          <Prazo cartao={cartao} agora={agora} />
           {podeEditar ? (
             <TituloEPontos cartao={cartao} />
           ) : (
             <p className="text-sm">
               <span className="text-suave">Pontos: </span>
               <strong className="font-semibold tabular-nums">{cartao.pontos}</strong>
+              <span className="text-suave"> · Horas estimadas: </span>
+              <strong className="font-semibold tabular-nums">{cartao.horasEstimadas === null ? "sem estimativa" : formatarDuracao(cartao.horasEstimadas)}</strong>
             </p>
           )}
+          <Responsavel cartao={cartao} time={time} meuId={meuId} podeEscolher={podeConduzir} />
+          <Bloqueio cartao={cartao} podeMarcar={podeConduzir || cartao.responsavelId === meuId} />
           <Descricao cartao={cartao} />
           <Checklist cartao={cartao} />
           {(podeConduzir || emVotacao) && (
@@ -80,7 +105,7 @@ function TituloEPontos({ cartao }: { cartao: Cartao }) {
   const [estado, acao, enviando] = useActionState(editarCartao, ESTADO_INICIAL);
   const id = `det-${cartao.id}`;
   return (
-    <Secao titulo="Título e pontos">
+    <Secao titulo="Título, pontos e horas estimadas">
       <form action={acao} noValidate className="flex flex-col gap-2">
         <input type="hidden" name="cartao" value={cartao.id} />
         <div className="flex flex-wrap items-start gap-2">
@@ -102,11 +127,27 @@ function TituloEPontos({ cartao }: { cartao: Cartao }) {
             Pontos
           </label>
           <SeletorDePontos id={`${id}-pontos`} padrao={estado.valores?.pontos ?? String(cartao.pontos)} erro={estado.erros?.pontos} />
+          <label htmlFor={`${id}-horas`} className="sr-only">
+            Horas estimadas
+          </label>
+          <span className="flex items-center gap-1.5">
+            <input
+              id={`${id}-horas`}
+              name="horas"
+              inputMode="decimal"
+              placeholder="horas"
+              defaultValue={estado.valores?.horas ?? cartao.horasEstimadas?.toString().replace(".", ",") ?? ""}
+              aria-invalid={estado.erros?.horas ? true : undefined}
+              className={`${CAMPO} w-20 text-right tabular-nums`}
+            />
+            <span className="text-sm text-suave">h</span>
+          </span>
           <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
             {enviando ? "Salvando…" : "Salvar"}
           </button>
         </div>
         <Erro id={`${id}-pontos-erro`} texto={estado.erros?.pontos} />
+        <Erro id={`${id}-horas-erro`} texto={estado.erros?.horas} />
         <Status erro={estado.mensagem} ok={estado.sucesso} />
       </form>
     </Secao>
@@ -260,6 +301,160 @@ function VotarPontos({ projetoId, cartao, emVotacao }: { projetoId: string; cart
         )}
       </div>
       <Status erro={erro ?? undefined} />
+    </Secao>
+  );
+}
+
+// Prazo do cartão: quanto já passou desde Em andamento contra as horas estimadas.
+function Prazo({ cartao, agora }: { cartao: Cartao; agora: string }) {
+  const prazo = prazoDoCartao(cartao, agora);
+  if (!prazo) return null;
+  const largura = Math.min(100, prazo.porcentagem);
+  return (
+    <div className={`flex flex-col gap-1.5 rounded-xl border px-4 py-3 ${prazo.atrasado ? "border-perigo/50 bg-perigo/10" : "border-linha bg-cartao"}`}>
+      <p className="text-sm">
+        {prazo.atrasado ? (
+          <strong className="font-semibold text-perigo">Gargalo: passou do tempo estimado. </strong>
+        ) : (
+          <strong className="font-semibold">Dentro do prazo. </strong>
+        )}
+        <span className="text-suave">
+          {formatarDuracao(prazo.decorridoHoras)} desde Em andamento, de {formatarDuracao(prazo.estimadoHoras)} estimadas.
+        </span>
+      </p>
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-elevado"
+        role="progressbar"
+        aria-label="Tempo usado do estimado"
+        aria-valuenow={prazo.porcentagem}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div className={`h-full rounded-full ${prazo.atrasado ? "bg-perigo" : "bg-laranja"}`} style={{ width: `${largura}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Responsavel({ cartao, time, meuId, podeEscolher }: { cartao: Cartao; time: Membro[]; meuId: string; podeEscolher: boolean }) {
+  const [ocupado, iniciar] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+  const avisar = useAvisar();
+  const atual = time.find((m) => m.usuarioId === cartao.responsavelId) ?? null;
+  const trocar = (usuario: string | null, aviso: string) => {
+    setErro(null);
+    iniciar(async () => {
+      const r = await definirResponsavel(cartao.id, usuario);
+      if (r.ok) avisar(aviso);
+      else setErro(r.mensagem);
+    });
+  };
+
+  return (
+    <Secao titulo="Responsável">
+      {podeEscolher ? (
+        <Seletor
+          rotuloAcessivel="Responsável pelo cartão"
+          valor={cartao.responsavelId ?? ""}
+          onChange={(v) => trocar(v || null, v ? `Responsável: ${time.find((m) => m.usuarioId === v)?.nome ?? ""}.` : "Cartão sem responsável.")}
+          opcoes={[{ valor: "", rotulo: "Sem responsável" }, ...time.map((m) => ({ valor: m.usuarioId, rotulo: m.nome, detalhe: SIGLA_DA_FUNCAO[m.funcao] }))]}
+          className="w-full sm:w-72"
+        />
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm">{atual ? atual.nome : <span className="text-suave">Sem responsável</span>}</span>
+          {!atual && (
+            <button type="button" disabled={ocupado} onClick={() => trocar(meuId, "Você pegou este cartão.")} className={BOTAO_SECUNDARIO}>
+              Pegar este cartão
+            </button>
+          )}
+          {atual?.usuarioId === meuId && (
+            <button type="button" disabled={ocupado} onClick={() => trocar(null, "Você largou este cartão.")} className={BOTAO_MINI}>
+              Largar
+            </button>
+          )}
+        </div>
+      )}
+      <Status erro={erro ?? undefined} />
+    </Secao>
+  );
+}
+
+function Bloqueio({ cartao, podeMarcar }: { cartao: Cartao; podeMarcar: boolean }) {
+  const [estado, acao, enviando] = useActionState(bloquearCartao, ESTADO_INICIAL);
+  const [ocupado, iniciar] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+  const [abrir, setAbrir] = useState(false);
+
+  if (cartao.bloqueado) {
+    return (
+      <Secao titulo="Bloqueio">
+        <div className="flex flex-col gap-2 rounded-xl border border-perigo/50 bg-perigo/10 px-4 py-3">
+          <p className="text-sm">
+            <strong className="font-semibold text-perigo">Bloqueado</strong>
+            {cartao.bloqueadoEm && <span className="text-suave"> desde {formatarDataHora(cartao.bloqueadoEm)}</span>}
+          </p>
+          <p className="text-sm break-words">{cartao.motivoBloqueio}</p>
+          {podeMarcar && (
+            <div>
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() =>
+                  iniciar(async () => {
+                    setErro(null);
+                    const r = await desbloquearCartao(cartao.id);
+                    if (!r.ok) setErro(r.mensagem);
+                  })
+                }
+                className={BOTAO_SECUNDARIO}
+              >
+                Desbloquear
+              </button>
+            </div>
+          )}
+          <Status erro={erro ?? undefined} />
+        </div>
+      </Secao>
+    );
+  }
+  if (!podeMarcar) return null;
+  return (
+    <Secao titulo="Bloqueio">
+      {abrir || estado.erros || estado.mensagem ? (
+        <form action={acao} noValidate className="flex flex-col gap-2">
+          <input type="hidden" name="cartao" value={cartao.id} />
+          <label htmlFor={`motivo-${cartao.id}`} className="text-sm text-suave">
+            Por que o cartão está parado?
+          </label>
+          <textarea
+            id={`motivo-${cartao.id}`}
+            name="motivo"
+            rows={2}
+            autoFocus
+            maxLength={MOTIVO_MAXIMO}
+            defaultValue={estado.valores?.motivo}
+            placeholder="Ex.: esperando a API do cliente"
+            aria-invalid={estado.erros?.motivo ? true : undefined}
+            className={`${CAMPO} resize-y`}
+          />
+          <div className="flex items-center gap-2">
+            <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
+              {enviando ? "Salvando…" : "Marcar como bloqueado"}
+            </button>
+            <button type="button" onClick={() => setAbrir(false)} className={BOTAO_TEXTO}>
+              Cancelar
+            </button>
+          </div>
+          <Status erro={estado.erros?.motivo ?? estado.mensagem} />
+        </form>
+      ) : (
+        <div>
+          <button type="button" onClick={() => setAbrir(true)} className={BOTAO_MINI}>
+            Marcar como bloqueado
+          </button>
+        </div>
+      )}
     </Secao>
   );
 }

@@ -115,3 +115,23 @@ dialog[open]::backdrop {
     transition-duration: 1ms !important;
   }
 }
+
+/* Cartão que virou gargalo ou está bloqueado: a borda vermelha pulsa devagar para chamar
+   a atenção do PO e do SM. Com "menos movimento" no sistema, fica só a borda fixa. */
+.alerta {
+  animation: alerta 2.4s ease-in-out infinite;
+}
+@keyframes alerta {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(224 105 92 / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgb(224 105 92 / 0.35);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .alerta {
+    animation: none;
+  }
+}

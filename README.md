@@ -16,7 +16,8 @@ Requisitos: Node 24 e um projeto no [Supabase](https://supabase.com) (o plano gr
    (Sprints e metas), `20261118170000_seguranca_rls_auto_enable.sql` e
    `20261119000000_ideias_professor.sql` (pop-ups, detalhe do cartão, Fibonacci 0–89,
    convite e Planning Poker) e `20261124000000_papeis_cadastro.sql` (papéis PO, SM e
-   desenvolvedor, e cadastro completo do projeto). **As migrações são aditivas** (criam tabelas, colunas e funções;
+   desenvolvedor, e cadastro completo do projeto) e `20261124010000_cartao_gargalo.sql`
+   (responsável, horas estimadas e bloqueio do cartão). **As migrações são aditivas** (criam tabelas, colunas e funções;
    nunca renomeiam nem removem dados), porque as versões antigas do site (branches `sprint-N`)
    usam o mesmo banco. A única regra que muda é a lista de pontos, que fica maior.
 4. Em Authentication → URL Configuration, cadastre a URL do site (ex.: `http://localhost:3000`
