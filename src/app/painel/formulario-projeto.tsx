@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Aviso, Campo } from "@/app/(acesso)/campo";
+import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
 import { CampoNumero } from "@/components/numero";
-import { NOME_PROJETO_MAXIMO, WIP_MAXIMO, WIP_MINIMO } from "@/lib/board/regras";
+import { DURACAO_SPRINT_PADRAO, WIP_MAXIMO, WIP_MINIMO } from "@/lib/board/regras";
 import { criarProjeto } from "./acoes";
+import { CamposCadastro } from "./campos-cadastro";
 import { ESTADO_INICIAL } from "./estado";
 
 // Botão "Novo projeto" que abre o cadastro em pop-up (ideia do professor),
@@ -18,7 +19,7 @@ export function NovoProjeto({ destaque = false }: { destaque?: boolean }) {
       <button type="button" onClick={() => setAberto(true)} className={destaque ? BOTAO_PRINCIPAL : BOTAO_SECUNDARIO}>
         <span aria-hidden="true">+</span> Novo projeto
       </button>
-      <Modal aberto={aberto} onFechar={() => setAberto(false)} titulo="Novo projeto">
+      <Modal aberto={aberto} onFechar={() => setAberto(false)} titulo="Novo projeto" largura="max-w-2xl">
         <FormularioProjeto onCancelar={() => setAberto(false)} />
       </Modal>
     </>
@@ -31,19 +32,14 @@ function FormularioProjeto({ onCancelar }: { onCancelar: () => void }) {
   return (
     <form action={acao} className="flex flex-col gap-4" noValidate>
       {estado.mensagem && <Aviso tipo="erro">{estado.mensagem}</Aviso>}
-      <Campo
-        name="nome"
-        rotulo="Nome do projeto"
-        placeholder="Ex.: Shelper – Sprint 2"
-        required
-        autoFocus
-        maxLength={NOME_PROJETO_MAXIMO}
-        defaultValue={estado.valores?.nome}
-        erro={estado.erros?.nome}
-        dica="Vem com Backlog, A fazer, Em andamento, Em revisão e Concluído."
-      />
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Limites de WIP</legend>
+      <p className="text-sm text-suave">
+        Todos os campos são obrigatórios: são eles que o Shelper usa para calcular as métricas e acompanhar o contrato. Quem cria o
+        projeto é o Product Owner (gestor).
+      </p>
+      <CamposCadastro valores={{ duracao: String(DURACAO_SPRINT_PADRAO), ...estado.valores }} erros={estado.erros} autoFocus />
+      <fieldset className="flex flex-col gap-2 border-t border-linha pt-4">
+        <legend className="sr-only">Limites de WIP</legend>
+        <p className="font-semibold">Limites de WIP</p>
         <p className="text-sm text-suave">
           Quantos cartões cabem ao mesmo tempo em cada coluna. O time pode mudar depois (ou decidir por votação).
         </p>

@@ -45,8 +45,8 @@ async function Conteudo({ params }: Pick<Props, "params">) {
           <>
             <h1 className="text-2xl font-bold tracking-tight">Convite para um projeto</h1>
             <p className="text-suave">
-              Você foi convidado para o projeto <strong className="text-texto">{situacao.projeto}</strong>. Ao
-              entrar, você vê o board e pode criar e mover cartões.
+              Você foi convidado para o projeto <strong className="text-texto">{situacao.projeto}</strong>. Você
+              entra como desenvolvedor: vê o board, move os cartões e vota no Planning Poker. O Product Owner pode mudar seu papel depois.
             </p>
             <AceitarConvite codigo={codigo} />
           </>

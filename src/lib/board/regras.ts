@@ -226,3 +226,80 @@ export function resumoDosVotos(tipo: TipoVotacao, valores: number[]) {
   const consenso = valores.every((v) => v === valores[0]);
   return { media, menor: Math.min(...valores), maior: Math.max(...valores), sugestao, consenso };
 }
+
+// ---------------------------------------------------------------- Cadastro do projeto
+// Pedido do professor: o projeto é cadastrado como um contrato, com tudo que os
+// cálculos precisam. Todos os campos são obrigatórios.
+
+export const DURACAO_SPRINT_PADRAO = 14;
+
+export type CadastroProjeto = {
+  nome: string;
+  cliente: string;
+  objetivo: string;
+  horas: number;
+  inicio: string;
+  entrega: string;
+  duracao: number;
+  lead: number;
+  cycle: number;
+  velocity: number;
+};
+
+type LeitorDeForm = { get(nome: string): FormDataEntryValue | null };
+
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+export function validarCadastroProjeto(form: LeitorDeForm): Resultado<CadastroProjeto> {
+  const erros: Partial<Record<string, string>> = {};
+  const textoObrigatorio = (nome: string, maximo: number, rotulo: string) => {
+    const t = texto(form.get(nome));
+    if (!t) erros[nome] = `Informe ${rotulo}.`;
+    else if (t.length > maximo) erros[nome] = `Use no máximo ${maximo} caracteres.`;
+    return t;
+  };
+  const numero = (nome: string, min: number, max: number, inteiro: boolean, rotulo: string) => {
+    const t = texto(form.get(nome)).replace(",", ".");
+    const n = Number(t);
+    if (!t || !Number.isFinite(n) || n < min || n > max || (inteiro && !Number.isInteger(n))) {
+      erros[nome] = `Informe ${rotulo} (${inteiro ? "número inteiro " : ""}de ${min} a ${max}).`;
+    }
+    return n;
+  };
+  const data = (nome: string, rotulo: string) => {
+    const t = texto(form.get(nome));
+    if (!DATA_ISO.test(t) || Number.isNaN(Date.parse(`${t}T00:00:00Z`))) erros[nome] = `Informe ${rotulo}.`;
+    return t;
+  };
+
+  const nome = textoObrigatorio("nome", NOME_PROJETO_MAXIMO, "o nome do projeto");
+  const cliente = textoObrigatorio("cliente", 80, "o cliente");
+  const objetivo = textoObrigatorio("objetivo", 300, "o objetivo do projeto");
+  const horas = numero("horas", 1, 100000, true, "as horas contratadas");
+  const inicio = data("inicio", "a data de início");
+  const entrega = data("entrega", "a data de entrega");
+  if (!erros.inicio && !erros.entrega && entrega < inicio) erros.entrega = "A entrega não pode ser antes do início.";
+  const duracao = numero("duracao", 1, 60, true, "a duração da Sprint em dias");
+  const lead = numero("lead", 0.1, 365, false, "a meta de Lead Time em dias");
+  const cycle = numero("cycle", 0.1, 2000, false, "a meta de Cycle Time em horas");
+  const velocity = numero("velocity", 1, 10000, true, "a meta de Velocity em pontos");
+
+  if (Object.keys(erros).length) return { ok: false, erros };
+  return { ok: true, dados: { nome, cliente, objetivo, horas, inicio, entrega, duracao, lead, cycle, velocity } };
+}
+
+// O cadastro dos projetos criados antes desta versão pode estar incompleto.
+export function cadastroCompleto(p: {
+  cliente: string | null;
+  objetivo: string | null;
+  horasContratadas: number | null;
+  dataInicio: string | null;
+  dataEntrega: string | null;
+  duracaoSprint: number | null;
+  metas: { leadDias: number | null; cycleHoras: number | null; velocity: number | null };
+}): boolean {
+  return Boolean(
+    p.cliente && p.objetivo && p.horasContratadas && p.dataInicio && p.dataEntrega && p.duracaoSprint &&
+      p.metas.leadDias && p.metas.cycleHoras && p.metas.velocity,
+  );
+}

@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Metas, Sprint } from "@/lib/board/dados";
 import type { Faixa } from "@/lib/metricas/calculo";
 import type { PainelMetricas } from "@/lib/metricas/painel";
-import { FormularioMetas } from "./formulario-metas";
 
 const ESTILO_FAIXA: Record<Faixa, { texto: string; classe: string }> = {
   bom: { texto: "Bom", classe: "bg-bom/15 text-bom" },
@@ -69,7 +68,7 @@ export function Metricas({
         <Cartao titulo="Velocity" valor={String(resumo.velocity)} unidade="pontos" faixa={faixas.velocity} nota="Pontos dos cartões concluídos." />
       </dl>
       {!metas.leadDias && !metas.cycleHoras && !metas.velocity && (
-        <p className="text-sm text-suave">Sem metas definidas, os números aparecem sem a faixa Bom / Mais ou menos / Ruim. Defina as metas do time abaixo.</p>
+        <p className="text-sm text-suave">Sem metas definidas, os números aparecem sem a faixa Bom / Mais ou menos / Ruim. O PO define as metas na aba Projeto.</p>
       )}
 
       <section aria-labelledby="titulo-gargalo" className="flex flex-col gap-3">
@@ -104,7 +103,14 @@ export function Metricas({
         )}
       </section>
 
-      <FormularioMetas projetoId={projetoId} metas={metas} />
+      <p className="text-sm text-suave">
+        Metas do projeto: Lead Time {metas.leadDias ?? "–"} dias, Cycle Time {metas.cycleHoras ?? "–"} h, Velocity {metas.velocity ?? "–"} pontos.
+        As metas fazem parte do cadastro e são alteradas pelo PO na{" "}
+        <Link href={`/painel/projetos/${projetoId}?aba=projeto`} className="text-laranja-claro hover:text-laranja">
+          aba Projeto
+        </Link>
+        .
+      </p>
     </div>
   );
 }

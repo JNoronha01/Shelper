@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { IdAba } from "@/lib/board/papeis";
 
 export const ABAS = [
   { id: "board", rotulo: "Board" },
@@ -7,18 +8,20 @@ export const ABAS = [
   { id: "votacao", rotulo: "Votação" },
   { id: "historico", rotulo: "Histórico" },
   { id: "time", rotulo: "Time" },
-] as const;
-export type IdAba = (typeof ABAS)[number]["id"];
+  { id: "projeto", rotulo: "Projeto" },
+] as const satisfies readonly { id: IdAba; rotulo: string }[];
+export type { IdAba };
 
 export const eAba = (v: unknown): v is IdAba => ABAS.some((a) => a.id === v);
 
 // Abas como links (?aba=...): a página inteira continua no servidor, sem JavaScript extra,
 // e o endereço pode ser copiado e enviado ao time já na aba certa.
-export function Abas({ projetoId, atual }: { projetoId: string; atual: IdAba }) {
+// Só aparecem as abas que o papel da pessoa usa (ver papeis.ts).
+export function Abas({ projetoId, atual, visiveis }: { projetoId: string; atual: IdAba; visiveis: IdAba[] }) {
   return (
     <nav aria-label="Seções do projeto" className="sem-barra -mx-4 overflow-x-auto px-4">
       <div className="flex w-max gap-1 rounded-xl border border-linha bg-painel p-1">
-        {ABAS.map((a) => {
+        {ABAS.filter((a) => visiveis.includes(a.id)).map((a) => {
           const ativa = a.id === atual;
           return (
             <Link

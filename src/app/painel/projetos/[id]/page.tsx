@@ -18,14 +18,15 @@ import {
 import type { LimitesWip } from "@/lib/board/regras";
 import { eUuid } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
+import { abasDoPapel, NOME_DA_FUNCAO, pode, type Funcao } from "@/lib/board/papeis";
 import { diaLocal } from "@/lib/metricas/calculo";
 import { montarPainel, PERIODO_TUDO } from "@/lib/metricas/painel";
 import { Abas, eAba, type IdAba } from "./abas";
 import { Board } from "./board";
-import { ConfiguracaoWip } from "./configuracao-wip";
 import { FaixaSprint } from "./faixa-sprint";
 import { Historico } from "./historico";
 import { Metricas } from "./metricas";
+import { AbaProjeto } from "./projeto";
 import { NovaSprint, SprintAtiva, SprintsEncerradas } from "./sprint";
 import { Time } from "./time";
 import { Votacoes } from "./votacao";
@@ -37,14 +38,16 @@ type Props = PageProps<"/painel/projetos/[id]">;
 async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | "searchParams">) {
   const { id } = await params;
   const consulta = await searchParams;
-  const aba: IdAba = eAba(consulta.aba) ? consulta.aba : "board";
   if (!eUuid(id)) notFound();
   const usuario = await exigirUsuario();
   const dados = await carregarBoard(id, usuario.id);
   // Projeto de outro time aparece como inexistente: o RLS não devolve a linha.
   if (!dados) notFound();
 
-  const { projeto, papel, membros, cartoes, eventos, sprints, metas, votacoes } = dados;
+  const { projeto, funcao, membros, cartoes, eventos, sprints, metas, votacoes } = dados;
+  // Cada papel vê só as abas que usa; uma aba de fora (link antigo) cai no Board.
+  const visiveis = abasDoPapel(funcao);
+  const aba: IdAba = eAba(consulta.aba) && visiveis.includes(consulta.aba) ? consulta.aba : "board";
   const limites = { wipAndamento: projeto.wipAndamento, wipRevisao: projeto.wipRevisao };
   const concluidos = cartoes.filter((c) => c.coluna === "Concluído");
   const agora = new Date().toISOString();
@@ -62,7 +65,8 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           </Link>
           <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{projeto.nome}</h1>
           <p className="text-sm text-suave">
-            {papel === "dono" ? "Você é o dono" : "Você é membro"}, {membros} {membros === 1 ? "integrante" : "integrantes"}
+            Você é <strong className="font-medium text-texto">{NOME_DA_FUNCAO[funcao]}</strong>
+            {funcao === "po" && " (gestor)"}, {membros} {membros === 1 ? "integrante" : "integrantes"}
           </p>
         </div>
         <dl className="flex divide-x divide-linha rounded-xl border border-linha bg-painel">
@@ -79,24 +83,39 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
         </dl>
       </div>
 
-      <Abas projetoId={projeto.id} atual={aba} />
+      <Abas projetoId={projeto.id} atual={aba} visiveis={visiveis} />
 
       {aba === "board" && (
         <>
           <FaixaSprint projetoId={projeto.id} sprint={ativa} cartoes={cartoes} hoje={diaLocal(agora)} />
-          {papel === "dono" && (
-            <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
+          {funcao === "po" && !projeto.cadastroCompleto && (
+            <p className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-sm">
+              <span>Falta completar o cadastro do projeto (horas, prazo e metas). Sem ele, as métricas ficam sem referência.</span>
+              <Link href={`/painel/projetos/${projeto.id}?aba=projeto`} className="font-medium text-laranja-claro hover:text-laranja">
+                Completar cadastro
+              </Link>
+            </p>
           )}
-          <Board projetoId={projeto.id} limites={limites} cartoes={cartoes} votacoes={votacoes} />
+          <Board projetoId={projeto.id} limites={limites} cartoes={cartoes} votacoes={votacoes} funcao={funcao} />
         </>
       )}
 
       {aba === "sprint" && (
         <div className="flex flex-col gap-6">
           {ativa ? (
-            <SprintAtiva sprint={ativa} cartoes={cartoes} backlog={backlog} />
+            <SprintAtiva sprint={ativa} cartoes={cartoes} backlog={backlog} podeGerir={pode(funcao, "gerirSprint")} />
+          ) : pode(funcao, "gerirSprint") ? (
+            <NovaSprint
+              projetoId={projeto.id}
+              backlog={backlog}
+              hoje={diaLocal(agora)}
+              numero={sprints.length + 1}
+              duracao={projeto.duracaoSprint ?? 14}
+            />
           ) : (
-            <NovaSprint projetoId={projeto.id} backlog={backlog} hoje={diaLocal(agora)} numero={sprints.length + 1} />
+            <p className="rounded-2xl border border-dashed border-linha-forte p-6 text-center text-sm text-suave">
+              Nenhuma Sprint ativa. O PO ou o SM cria a próxima.
+            </p>
           )}
           <SprintsEncerradas sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
         </div>
@@ -120,9 +139,11 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           totalMembros={membros}
           meuId={usuario.id}
           limites={limites}
+          podeConduzir={pode(funcao, "conduzirVotacao")}
         />
       )}
-      {aba === "time" && <AbaTime projetoId={projeto.id} souDono={papel === "dono"} meuId={usuario.id} agora={agora} />}
+      {aba === "time" && <AbaTime projetoId={projeto.id} funcao={funcao} meuId={usuario.id} agora={agora} />}
+      {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} />}
     </>
   );
 }
@@ -158,15 +179,17 @@ async function AbaVotacao(props: {
   totalMembros: number;
   meuId: string;
   limites: LimitesWip;
+  podeConduzir: boolean;
 }) {
   const votos = await carregarVotos(props.projetoId);
   return <Votacoes {...props} votos={votos} />;
 }
 
-async function AbaTime({ projetoId, souDono, meuId, agora }: { projetoId: string; souDono: boolean; meuId: string; agora: string }) {
+async function AbaTime({ projetoId, funcao, meuId, agora }: { projetoId: string; funcao: Funcao; meuId: string; agora: string }) {
+  const gerir = pode(funcao, "gerirTime");
   const [membros, convite, cabecalhos] = await Promise.all([
     carregarMembros(projetoId),
-    souDono ? carregarConvite(projetoId) : Promise.resolve(null),
+    gerir ? carregarConvite(projetoId) : Promise.resolve(null),
     headers(),
   ]);
   // Endereço do site para montar o link de convite (funciona no localhost, no Vercel e no link da Sprint).
@@ -177,7 +200,7 @@ async function AbaTime({ projetoId, souDono, meuId, agora }: { projetoId: string
       projetoId={projetoId}
       membros={membros}
       convite={convite}
-      souDono={souDono}
+      podeGerir={gerir}
       meuId={meuId}
       origem={`${protocolo}://${host}`}
       agora={agora}

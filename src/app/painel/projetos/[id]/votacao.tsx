@@ -21,6 +21,8 @@ type Props = {
   totalMembros: number;
   meuId: string;
   limites: LimitesWip;
+  // PO e SM conduzem (abrir, revelar, decidir, cancelar); todos votam.
+  podeConduzir: boolean;
 };
 
 function useAcao() {
@@ -36,7 +38,7 @@ function useAcao() {
   return { ocupado, erro, executar };
 }
 
-export function Votacoes({ projetoId, votacoes, votos, cartoes, totalMembros, meuId, limites }: Props) {
+export function Votacoes({ projetoId, votacoes, votos, cartoes, totalMembros, meuId, limites, podeConduzir }: Props) {
   const ativas = votacoes.filter((v) => v.situacao !== "encerrada");
   const encerradas = votacoes.filter((v) => v.situacao === "encerrada");
   const titulo = (v: Votacao) => {
@@ -50,7 +52,7 @@ export function Votacoes({ projetoId, votacoes, votos, cartoes, totalMembros, me
         <h2 className="font-semibold">Em andamento</h2>
         {ativas.length === 0 && (
           <p className="rounded-xl border border-dashed border-linha-forte p-6 text-center text-sm text-suave">
-            Nenhuma votação aberta. Abra uma ao lado, ou pelo detalhe de um cartão.
+            {podeConduzir ? "Nenhuma votação aberta. Abra uma ao lado, ou pelo detalhe de um cartão." : "Nenhuma votação aberta. O PO ou o SM abre as votações."}
           </p>
         )}
         {ativas.map((v) => (
@@ -58,6 +60,7 @@ export function Votacoes({ projetoId, votacoes, votos, cartoes, totalMembros, me
             key={v.id}
             votacao={v}
             titulo={titulo(v)}
+            podeConduzir={podeConduzir}
             votos={votos.filter((x) => x.votacaoId === v.id)}
             totalMembros={totalMembros}
             meuId={meuId}
@@ -73,7 +76,7 @@ export function Votacoes({ projetoId, votacoes, votos, cartoes, totalMembros, me
       </div>
 
       <div className="flex flex-col gap-6">
-        <NovaVotacao projetoId={projetoId} cartoes={cartoes} ativas={ativas} />
+        {podeConduzir && <NovaVotacao projetoId={projetoId} cartoes={cartoes} ativas={ativas} />}
         {encerradas.length > 0 && (
           <section aria-labelledby="titulo-decididas" className="rounded-2xl border border-linha bg-painel p-5">
             <h2 id="titulo-decididas" className="mb-3 font-semibold">
@@ -101,6 +104,7 @@ function PainelVotacao({
   totalMembros,
   meuId,
   atual,
+  podeConduzir,
 }: {
   votacao: Votacao;
   titulo: string;
@@ -108,6 +112,7 @@ function PainelVotacao({
   totalMembros: number;
   meuId: string;
   atual: number | null;
+  podeConduzir: boolean;
 }) {
   const { ocupado, erro, executar } = useAcao();
   const tipo: TipoVotacao = votacao.tipo;
@@ -194,6 +199,7 @@ function PainelVotacao({
         </p>
       )}
 
+      {podeConduzir ? (
       <div className="flex flex-wrap items-end gap-2 border-t border-linha pt-4">
         {!revelada ? (
           <button
@@ -242,6 +248,11 @@ function PainelVotacao({
           Cancelar votação
         </button>
       </div>
+      ) : (
+        <p className="border-t border-linha pt-4 text-sm text-suave">
+          {revelada ? "O PO ou o SM decide o valor final com o time." : "Quando todos votarem, o PO ou o SM revela os votos."}
+        </p>
+      )}
     </article>
   );
 }

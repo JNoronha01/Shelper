@@ -1,4 +1,6 @@
 import { COLUNAS, type Coluna } from "@/lib/colunas";
+import { cadastroCompleto } from "./regras";
+import type { Funcao } from "./papeis";
 import { criarClienteServidor } from "@/lib/supabase/server";
 
 // Leitura dos dados do board. Usa o cliente com a sessão do usuário, então as
@@ -8,7 +10,7 @@ export type ResumoProjeto = {
   id: string;
   nome: string;
   criadoEm: string;
-  papel: "dono" | "membro";
+  funcao: Funcao;
   membros: number;
   cartoes: number;
   pontosTotais: number;
@@ -44,7 +46,7 @@ export type Votacao = {
 // valor = null quando o voto ainda está escondido (votação aberta e o voto é de outra pessoa).
 export type Voto = { votacaoId: string; usuarioId: string; nome: string; valor: number | null };
 
-export type Membro = { usuarioId: string; nome: string; email: string; papel: "dono" | "membro"; entrouEm: string };
+export type Membro = { usuarioId: string; nome: string; email: string; funcao: Funcao; entrouEm: string };
 
 export type Convite = { codigo: string; expiraEm: string };
 
@@ -67,11 +69,23 @@ export type Evento = {
 };
 
 export type DadosBoard = {
-  projeto: { id: string; nome: string; wipAndamento: number; wipRevisao: number };
+  projeto: {
+    id: string;
+    nome: string;
+    wipAndamento: number;
+    wipRevisao: number;
+    cliente: string | null;
+    objetivo: string | null;
+    horasContratadas: number | null;
+    dataInicio: string | null;
+    dataEntrega: string | null;
+    duracaoSprint: number | null;
+    cadastroCompleto: boolean;
+  };
   metas: Metas;
   sprints: Sprint[];
   votacoes: Votacao[];
-  papel: "dono" | "membro";
+  funcao: Funcao;
   membros: number;
   cartoes: Cartao[];
   eventos: Evento[];
@@ -83,14 +97,14 @@ export async function listarProjetos(usuarioId: string): Promise<ResumoProjeto[]
   const supabase = await criarClienteServidor();
   const { data, error } = await supabase
     .from("membros")
-    .select("papel, projetos(id, nome, criado_em, cartoes(pontos, coluna_atual), sprints(numero, fim, encerrada), membros(count))")
+    .select("funcao, projetos(id, nome, criado_em, cartoes(pontos, coluna_atual), sprints(numero, fim, encerrada), membros(count))")
     .eq("usuario_id", usuarioId);
   if (error) {
     console.error("Falha ao listar projetos", { code: error.code });
     throw new Error("Não foi possível carregar os projetos.");
   }
   type Linha = {
-    papel: "dono" | "membro";
+    funcao: Funcao;
     projetos: {
       id: string;
       nome: string;
@@ -110,7 +124,7 @@ export async function listarProjetos(usuarioId: string): Promise<ResumoProjeto[]
         id: p.id,
         nome: p.nome,
         criadoEm: p.criado_em,
-        papel: l.papel,
+        funcao: l.funcao,
         membros: p.membros[0]?.count ?? 1,
         cartoes: p.cartoes.length,
         pontosTotais: p.cartoes.reduce((s, c) => s + c.pontos, 0),
@@ -128,10 +142,10 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
   const [projeto, membros, cartoes, eventos, sprints, votacoes] = await Promise.all([
     supabase
       .from("projetos")
-      .select("id, nome, wip_andamento, wip_revisao, meta_lead_dias, meta_cycle_horas, meta_velocity")
+      .select("id, nome, wip_andamento, wip_revisao, meta_lead_dias, meta_cycle_horas, meta_velocity, cliente, objetivo, horas_contratadas, data_inicio, data_entrega, duracao_sprint")
       .eq("id", projetoId)
       .maybeSingle(),
-    supabase.from("membros").select("usuario_id, papel").eq("projeto_id", projetoId),
+    supabase.from("membros").select("usuario_id, funcao").eq("projeto_id", projetoId),
     supabase
       .from("cartoes")
       .select("id, titulo, pontos, coluna_atual, criado_em, sprint_id, descricao, checklist_itens(id, texto, feito, criado_em)")
@@ -165,7 +179,7 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
   // Sem linha = projeto inexistente ou de outro time (o RLS esconde).
   if (!projeto.data) return null;
 
-  const listaMembros = (membros.data ?? []) as { usuario_id: string; papel: "dono" | "membro" }[];
+  const listaMembros = (membros.data ?? []) as { usuario_id: string; funcao: Funcao }[];
   const eu = listaMembros.find((m) => m.usuario_id === usuarioId);
   if (!eu) return null;
 
@@ -179,18 +193,30 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
     cartoes: { titulo: string } | null;
   };
 
+  const metas: Metas = {
+    leadDias: projeto.data.meta_lead_dias === null ? null : Number(projeto.data.meta_lead_dias),
+    cycleHoras: projeto.data.meta_cycle_horas === null ? null : Number(projeto.data.meta_cycle_horas),
+    velocity: projeto.data.meta_velocity,
+  };
+  const cadastro = {
+    cliente: projeto.data.cliente,
+    objetivo: projeto.data.objetivo,
+    horasContratadas: projeto.data.horas_contratadas,
+    dataInicio: projeto.data.data_inicio,
+    dataEntrega: projeto.data.data_entrega,
+    duracaoSprint: projeto.data.duracao_sprint,
+  };
+
   return {
     projeto: {
       id: projeto.data.id,
       nome: projeto.data.nome,
       wipAndamento: projeto.data.wip_andamento,
       wipRevisao: projeto.data.wip_revisao,
+      ...cadastro,
+      cadastroCompleto: cadastroCompleto({ ...cadastro, metas }),
     },
-    metas: {
-      leadDias: projeto.data.meta_lead_dias,
-      cycleHoras: projeto.data.meta_cycle_horas,
-      velocity: projeto.data.meta_velocity,
-    },
+    metas,
     sprints: (sprints.data ?? []) as Sprint[],
     votacoes: (votacoes.data ?? []).map((v) => ({
       id: v.id,
@@ -201,7 +227,7 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       resultado: v.resultado,
       criadoEm: v.criado_em,
     })),
-    papel: eu.papel,
+    funcao: eu.funcao,
     membros: listaMembros.length,
     cartoes: (cartoes.data ?? [])
       .filter((c) => eColuna(c.coluna_atual))
@@ -264,11 +290,15 @@ function falhar(onde: string, code: string | undefined): never {
 // então a função do banco confere se você é membro e devolve a lista).
 export async function carregarMembros(projetoId: string): Promise<Membro[]> {
   const supabase = await criarClienteServidor();
-  const { data, error } = await supabase.rpc("listar_membros", { p_projeto: projetoId });
+  const { data, error } = await supabase.rpc("listar_time", { p_projeto: projetoId });
   if (error) falhar("os membros", error.code);
-  return ((data ?? []) as { usuario_id: string; nome: string; email: string; papel: "dono" | "membro"; entrou_em: string }[]).map(
-    (m) => ({ usuarioId: m.usuario_id, nome: m.nome, email: m.email, papel: m.papel, entrouEm: m.entrou_em }),
-  );
+  return ((data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string }[]).map((m) => ({
+    usuarioId: m.usuario_id,
+    nome: m.nome,
+    email: m.email,
+    funcao: m.funcao,
+    entrouEm: m.entrou_em,
+  }));
 }
 
 // Só o dono consegue ler o convite (RLS); para os outros volta null.

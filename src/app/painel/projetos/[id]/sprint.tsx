@@ -86,15 +86,35 @@ function ListaBacklog({ cartoes }: { cartoes: Cartao[] }) {
   );
 }
 
-export function NovaSprint({ projetoId, backlog, hoje, numero }: { projetoId: string; backlog: Cartao[]; hoje: string; numero: number }) {
+// Data AAAA-MM-DD somada de n dias (sem fuso: trabalha em UTC só para contar os dias).
+function somarDias(data: string, n: number) {
+  const d = new Date(`${data}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export function NovaSprint({
+  projetoId,
+  backlog,
+  hoje,
+  numero,
+  duracao,
+}: {
+  projetoId: string;
+  backlog: Cartao[];
+  hoje: string;
+  numero: number;
+  duracao: number;
+}) {
   const [estado, acao, enviando] = useActionState(criarSprint, ESTADO_INICIAL);
   return (
     <form action={acao} noValidate className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
       <input type="hidden" name="projeto" value={projetoId} />
       <h2 className="basis-full font-semibold">Nova Sprint {numero}</h2>
       <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? hoje} erro={estado.erros?.inicio} />
-      <CampoData nome="fim" rotulo="Fim" valor={estado.valores?.fim ?? ""} erro={estado.erros?.fim} />
+      <CampoData nome="fim" rotulo="Fim" valor={estado.valores?.fim ?? somarDias(hoje, duracao - 1)} erro={estado.erros?.fim} />
       <CampoMeta valor={estado.valores?.meta ?? ""} erro={estado.erros?.meta} />
+      <p className="basis-full text-xs text-suave">O fim já vem com a duração de Sprint do cadastro ({duracao} dias); pode mudar.</p>
       <ListaBacklog cartoes={backlog} />
       <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
         {enviando ? "Criando…" : "Criar Sprint"}
@@ -104,7 +124,18 @@ export function NovaSprint({ projetoId, backlog, hoje, numero }: { projetoId: st
   );
 }
 
-export function SprintAtiva({ sprint, cartoes, backlog }: { sprint: Sprint; cartoes: Cartao[]; backlog: Cartao[] }) {
+export function SprintAtiva({
+  sprint,
+  cartoes,
+  backlog,
+  podeGerir,
+}: {
+  sprint: Sprint;
+  cartoes: Cartao[];
+  backlog: Cartao[];
+  // PO e SM editam, montam e encerram; o desenvolvedor só vê.
+  podeGerir: boolean;
+}) {
   const [edicao, editar, editando] = useActionState(editarSprint, ESTADO_INICIAL);
   const [puxe, puxar, puxando] = useActionState(puxarCartoes, ESTADO_INICIAL);
   const [fim, encerrar, encerrando] = useActionState(encerrarSprint, ESTADO_INICIAL);
@@ -125,38 +156,42 @@ export function SprintAtiva({ sprint, cartoes, backlog }: { sprint: Sprint; cart
         </p>
       </section>
 
-      <form action={editar} noValidate className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
-        <input type="hidden" name="sprint" value={sprint.id} />
-        <h3 className="basis-full text-sm font-semibold">Editar datas e Meta</h3>
-        <CampoData nome="inicio" rotulo="Início" valor={edicao.valores?.inicio ?? sprint.inicio} erro={edicao.erros?.inicio} />
-        <CampoData nome="fim" rotulo="Fim" valor={edicao.valores?.fim ?? sprint.fim} erro={edicao.erros?.fim} />
-        <CampoMeta valor={edicao.valores?.meta ?? sprint.meta ?? ""} erro={edicao.erros?.meta} />
-        <button type="submit" disabled={editando} className={BOTAO_SECUNDARIO}>
-          {editando ? "Salvando…" : "Salvar"}
-        </button>
-        <Mensagens estado={edicao} />
-      </form>
+      {podeGerir && (
+        <>
+          <form action={editar} noValidate className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
+            <input type="hidden" name="sprint" value={sprint.id} />
+            <h3 className="basis-full text-sm font-semibold">Editar datas e Meta</h3>
+            <CampoData nome="inicio" rotulo="Início" valor={edicao.valores?.inicio ?? sprint.inicio} erro={edicao.erros?.inicio} />
+            <CampoData nome="fim" rotulo="Fim" valor={edicao.valores?.fim ?? sprint.fim} erro={edicao.erros?.fim} />
+            <CampoMeta valor={edicao.valores?.meta ?? sprint.meta ?? ""} erro={edicao.erros?.meta} />
+            <button type="submit" disabled={editando} className={BOTAO_SECUNDARIO}>
+              {editando ? "Salvando…" : "Salvar"}
+            </button>
+            <Mensagens estado={edicao} />
+          </form>
 
-      <form action={puxar} className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
-        <input type="hidden" name="sprint" value={sprint.id} />
-        <h3 className="basis-full text-sm font-semibold">Adicionar cartões do Backlog</h3>
-        <ListaBacklog cartoes={backlog} />
-        {backlog.length > 0 && (
-          <button type="submit" disabled={puxando} className={BOTAO_SECUNDARIO}>
-            {puxando ? "Movendo…" : "Mover para A fazer"}
-          </button>
-        )}
-        <Mensagens estado={puxe} />
-      </form>
+          <form action={puxar} className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
+            <input type="hidden" name="sprint" value={sprint.id} />
+            <h3 className="basis-full text-sm font-semibold">Adicionar cartões do Backlog</h3>
+            <ListaBacklog cartoes={backlog} />
+            {backlog.length > 0 && (
+              <button type="submit" disabled={puxando} className={BOTAO_SECUNDARIO}>
+                {puxando ? "Movendo…" : "Mover para A fazer"}
+              </button>
+            )}
+            <Mensagens estado={puxe} />
+          </form>
 
-      <form action={encerrar} className="flex flex-wrap items-center gap-3">
-        <input type="hidden" name="sprint" value={sprint.id} />
-        <button type="submit" disabled={encerrando} className={BOTAO_SECUNDARIO}>
-          {encerrando ? "Encerrando…" : "Encerrar Sprint"}
-        </button>
-        <span className="text-sm text-suave">Só pode haver uma Sprint ativa por vez. Encerre esta para criar a próxima.</span>
-        <Mensagens estado={fim} />
-      </form>
+          <form action={encerrar} className="flex flex-wrap items-center gap-3">
+            <input type="hidden" name="sprint" value={sprint.id} />
+            <button type="submit" disabled={encerrando} className={BOTAO_SECUNDARIO}>
+              {encerrando ? "Encerrando…" : "Encerrar Sprint"}
+            </button>
+            <span className="text-sm text-suave">Só pode haver uma Sprint ativa por vez. Encerre esta para criar a próxima.</span>
+            <Mensagens estado={fim} />
+          </form>
+        </>
+      )}
     </div>
   );
 }

@@ -13,13 +13,15 @@ import {
   validarLimitesWip,
   validarMetas,
   validarNovoCartao,
-  validarNovoProjeto,
+  validarCadastroProjeto,
+  type CadastroProjeto,
   validarSprint,
   valorDeVotoValido,
   type TipoVotacao,
 } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
 import { criarClienteServidor } from "@/lib/supabase/server";
+import type { Funcao } from "@/lib/board/papeis";
 import type { EstadoAcao, ResultadoMover, ResultadoSimples } from "./estado";
 
 // Cada ação lê a sessão de novo no servidor (não confia na tela) e chama uma
@@ -45,24 +47,68 @@ async function clienteComSessao() {
   return supabase;
 }
 
+const CAMPOS_CADASTRO = ["nome", "cliente", "objetivo", "horas", "inicio", "entrega", "duracao", "lead", "cycle", "velocity"] as const;
+
+const valoresDoForm = (form: FormData, campos: readonly string[]) =>
+  Object.fromEntries(campos.map((c) => [c, String(form.get(c) ?? "")]));
+
+const argumentosDoCadastro = (d: CadastroProjeto) => ({
+  p_nome: d.nome,
+  p_cliente: d.cliente,
+  p_objetivo: d.objetivo,
+  p_horas: d.horas,
+  p_inicio: d.inicio,
+  p_entrega: d.entrega,
+  p_duracao: d.duracao,
+  p_lead: d.lead,
+  p_cycle: d.cycle,
+  p_velocity: d.velocity,
+});
+
+// Cadastro completo do projeto (como um contrato) + WIP. Quem cria vira o PO.
 export async function criarProjeto(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
-  const valores = {
-    nome: String(form.get("nome") ?? ""),
-    andamento: String(form.get("andamento") ?? ""),
-    revisao: String(form.get("revisao") ?? ""),
-  };
-  const validacao = validarNovoProjeto(form.get("nome"), form.get("andamento"), form.get("revisao"));
-  if (!validacao.ok) return { erros: validacao.erros, valores };
+  const valores = valoresDoForm(form, [...CAMPOS_CADASTRO, "andamento", "revisao"]);
+  const cadastro = validarCadastroProjeto(form);
+  const wip = validarLimitesWip(form.get("andamento"), form.get("revisao"));
+  if (!cadastro.ok || !wip.ok) {
+    return { erros: { ...(cadastro.ok ? {} : cadastro.erros), ...(wip.ok ? {} : wip.erros) }, valores };
+  }
 
   const supabase = await clienteComSessao();
-  const { data, error } = await supabase.rpc("criar_projeto_com_wip", {
-    p_nome: validacao.dados.nome,
-    p_andamento: validacao.dados.andamento,
-    p_revisao: validacao.dados.revisao,
+  const { data, error } = await supabase.rpc("criar_projeto_completo", {
+    ...argumentosDoCadastro(cadastro.dados),
+    p_andamento: wip.dados.andamento,
+    p_revisao: wip.dados.revisao,
   });
   if (error) return { mensagem: mensagemDoBanco(error), valores };
 
   redirect(`/painel/projetos/${data}`);
+}
+
+export async function editarProjeto(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const projeto = form.get("projeto");
+  const valores = valoresDoForm(form, CAMPOS_CADASTRO);
+  if (!eUuid(projeto)) return { mensagem: SEM_ACESSO };
+  const cadastro = validarCadastroProjeto(form);
+  if (!cadastro.ok) return { erros: cadastro.erros, valores };
+
+  const supabase = await clienteComSessao();
+  const { error } = await supabase.rpc("editar_projeto", { p_projeto: projeto, ...argumentosDoCadastro(cadastro.dados) });
+  if (error) return { mensagem: mensagemDoBanco(error), valores };
+
+  refresh();
+  return { sucesso: "Cadastro do projeto salvo.", versao: Date.now() };
+}
+
+export async function definirFuncao(projeto: string, usuario: string, funcao: Funcao): Promise<ResultadoSimples> {
+  if (!eUuid(projeto) || !eUuid(usuario)) return { ok: false, mensagem: SEM_ACESSO };
+  if (funcao !== "sm" && funcao !== "dev") return { ok: false, mensagem: "Escolha SM ou Desenvolvedor." };
+  return chamar("definir_funcao", { p_projeto: projeto, p_usuario: usuario, p_funcao: funcao });
+}
+
+export async function transferirPo(projeto: string, usuario: string): Promise<ResultadoSimples> {
+  if (!eUuid(projeto) || !eUuid(usuario)) return { ok: false, mensagem: SEM_ACESSO };
+  return chamar("transferir_po", { p_projeto: projeto, p_usuario: usuario });
 }
 
 export async function definirLimitesWip(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
