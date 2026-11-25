@@ -22,6 +22,7 @@ import {
   type TipoVotacao,
 } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
+import { validarCartoesImportados } from "@/lib/importacao/trello";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import type { Funcao } from "@/lib/board/papeis";
 import type { EstadoAcao, ResultadoMover, ResultadoSimples } from "./estado";
@@ -473,4 +474,20 @@ export async function bloquearCartao(_anterior: EstadoAcao, form: FormData): Pro
 export async function desbloquearCartao(cartao: string): Promise<ResultadoSimples> {
   if (!eUuid(cartao)) return { ok: false, mensagem: SEM_ACESSO };
   return chamar("definir_bloqueio", { p_cartao: cartao, p_bloqueado: false, p_motivo: null });
+}
+
+// ---------------------------------------------------------------- Importação do Trello
+
+export type ResultadoImportacao = { ok: true; criados: number; ignorados: number; eventos: number } | { ok: false; mensagem: string };
+
+export async function importarTrello(projeto: string, cartoes: unknown): Promise<ResultadoImportacao> {
+  if (!eUuid(projeto)) return { ok: false, mensagem: SEM_ACESSO };
+  const validacao = validarCartoesImportados(cartoes);
+  if (!validacao.ok) return { ok: false, mensagem: validacao.erro };
+  const supabase = await clienteComSessao();
+  const { data, error } = await supabase.rpc("importar_trello", { p_projeto: projeto, p_cartoes: validacao.cartoes });
+  if (error) return { ok: false, mensagem: mensagemDoBanco(error) };
+  refresh();
+  const r = data as { criados: number; ignorados: number; eventos: number };
+  return { ok: true, criados: r.criados, ignorados: r.ignorados, eventos: r.eventos };
 }
