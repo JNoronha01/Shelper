@@ -8,6 +8,7 @@ import { CamposCadastro } from "../../campos-cadastro";
 import { editarProjeto } from "../../acoes";
 import { ESTADO_INICIAL } from "../../estado";
 import { ConfiguracaoWip } from "./configuracao-wip";
+import { ImportarTrello } from "./importar-trello";
 
 type Projeto = DadosBoard["projeto"];
 
@@ -27,6 +28,11 @@ export function AbaProjeto({ projeto, metas, podeEditar, horas }: { projeto: Pro
         <HorasDoContrato contratadas={projeto.horasContratadas} horas={horas} />
         <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
       </div>
+      {podeEditar && (
+        <div className="lg:col-span-2">
+          <ImportarTrello projetoId={projeto.id} />
+        </div>
+      )}
     </div>
   );
 }

@@ -67,7 +67,7 @@ export function Board({
   const [criarEm, setCriarEm] = useState<Coluna | null>(null);
   const [detalheId, setDetalheId] = useState<string | null>(null);
   const [pendente, setPendente] = useState<Pendente | null>(null);
-  const detalhe = detalheId ? cartoes.find((c) => c.id === detalheId) ?? null : null;
+  const detalhe = detalheId ? (cartoes.find((c) => c.id === detalheId) ?? null) : null;
   const emVotacao = new Set(votacoes.filter((v) => v.situacao !== "encerrada" && v.cartaoId).map((v) => v.cartaoId));
 
   function mover(cartao: Cartao, para: Coluna, confirmarWip = false) {
@@ -93,27 +93,29 @@ export function Board({
     if (cartao) mover(cartao, coluna);
   }
 
+  // Com o aviso de atenção na linha, a dica de uso só aparece em telas bem largas.
+  const temAlerta = pode(funcao, "verMetricasTime") && alertasDoBoard(visiveis, agora).length > 0;
+
   return (
-    <section aria-label="Board" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {podeCriar ? (
-          <button type="button" onClick={() => setCriarEm("Backlog")} className={BOTAO_PRINCIPAL}>
-            <span aria-hidden="true" className="text-base leading-none">+</span> Novo cartão
+    <section aria-label="Board" className="flex flex-col gap-3 md:min-h-0 md:flex-1">
+      {/* Uma linha só: botão, aviso de atenção e dica. Sobra altura para as colunas. */}
+      <div className="flex shrink-0 flex-wrap items-start gap-3">
+        {podeCriar && (
+          <button type="button" onClick={() => setCriarEm("Backlog")} className={`${BOTAO_PRINCIPAL} shrink-0`}>
+            <span aria-hidden="true" className="text-base leading-none">
+              +
+            </span>{" "}
+            Novo cartão
           </button>
-        ) : (
-          <span />
         )}
-        <p className="text-sm text-suave">
+        {pode(funcao, "verMetricasTime") && <PainelAtencao cartoes={visiveis} time={time} agora={agora} onAbrir={setDetalheId} />}
+        <p className={`ml-auto self-center text-sm text-suave ${temAlerta ? "hidden 2xl:block" : ""}`}>
           {movendo ? "Gravando…" : "Arraste os cartões entre as colunas. Clique no título para abrir o detalhe."}
         </p>
       </div>
 
-      {pode(funcao, "verMetricasTime") && (
-        <PainelAtencao cartoes={visiveis} time={time} agora={agora} onAbrir={setDetalheId} />
-      )}
-
-      <div className="sem-barra -mx-4 overflow-x-auto px-4 pb-2">
-        <ol className="grid min-w-max grid-flow-col auto-cols-[17.5rem] gap-3 xl:min-w-0 xl:auto-cols-fr">
+      <div className="sem-barra -mx-4 overflow-x-auto px-4 pb-1 md:min-h-0 md:flex-1">
+        <ol className="relative grid min-w-max grid-flow-col auto-cols-[17.5rem] gap-3 md:h-full xl:min-w-0 xl:auto-cols-fr">
           {COLUNAS.map((coluna) => {
             const daColuna = visiveis.filter((c) => c.coluna === coluna);
             const limite = limiteDaColuna(coluna, limites);
@@ -134,7 +136,7 @@ export function Board({
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setAlvo(null);
                 }}
                 onDrop={(e) => soltar(e, coluna)}
-                className={`flex h-[calc(100dvh-20rem)] min-h-[22rem] flex-col gap-3 rounded-coluna border bg-painel p-2.5 transition duration-200 ease-suave ${estilo.borda} ${
+                className={`flex h-[calc(100dvh-20rem)] min-h-[22rem] flex-col gap-3 md:h-auto md:min-h-0 rounded-coluna border bg-painel p-2.5 transition duration-200 ease-suave ${estilo.borda} ${
                   ehAlvo ? "!border-laranja/70 bg-laranja/[0.04] ring-4 ring-laranja/10" : ""
                 }`}
               >
@@ -161,7 +163,7 @@ export function Board({
                 </header>
 
                 {/* Cada coluna rola sozinha: com muitos cartões, a página não cresce sem fim. */}
-                <ul className="-mr-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1.5 [scrollbar-gutter:stable]">
+                <ul className="relative -mr-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1.5 [scrollbar-gutter:stable]">
                   {daColuna.map((cartao) => (
                     <CartaoNoBoard
                       key={cartao.id}
@@ -187,12 +189,16 @@ export function Board({
                     }`}
                     aria-label={`Adicionar cartão em ${coluna}`}
                   >
-                    <span aria-hidden="true" className="text-base leading-none">+</span>
+                    <span aria-hidden="true" className="text-base leading-none">
+                      +
+                    </span>
                     {daColuna.length === 0 ? "Adicionar ou soltar aqui" : "Adicionar cartão"}
                   </button>
                 ) : (
                   daColuna.length === 0 && (
-                    <p className="mt-auto rounded-cartao border border-dashed border-linha-forte px-2.5 py-2 text-sm text-fraco">Solte um cartão aqui</p>
+                    <p className="mt-auto rounded-cartao border border-dashed border-linha-forte px-2.5 py-2 text-sm text-fraco">
+                      Solte um cartão aqui
+                    </p>
                   )
                 )}
               </li>
@@ -201,7 +207,13 @@ export function Board({
         </ol>
       </div>
 
-      <NovoCartao projetoId={projetoId} coluna={criarEm} onFechar={() => setCriarEm(null)} onCriado={(texto) => avisar(texto)} time={time} />
+      <NovoCartao
+        projetoId={projetoId}
+        coluna={criarEm}
+        onFechar={() => setCriarEm(null)}
+        onCriado={(texto) => avisar(texto)}
+        time={time}
+      />
       <DetalheCartao
         projetoId={projetoId}
         podeEditar={podeCriar}
@@ -329,48 +341,51 @@ function CartaoNoBoard({
           )}
           {total > 0 && (
             <li
-              className={`rounded-md px-1.5 py-0.5 tabular-nums ${
-                feitos === total ? "bg-bom/15 text-bom" : "bg-elevado/70"
-              }`}
+              className={`rounded-md px-1.5 py-0.5 tabular-nums ${feitos === total ? "bg-bom/15 text-bom" : "bg-elevado/70"}`}
               title="Itens do checklist feitos"
             >
               <svg viewBox="0 0 16 16" aria-hidden="true" className="mr-1 inline size-3 align-[-1px]">
                 <rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M5 8.2l2 2 4-4.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M5 8.2l2 2 4-4.4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
               {feitos}/{total}
             </li>
           )}
-          {emVotacao && (
-            <li className="rounded-md bg-laranja/10 px-1.5 py-0.5 text-laranja-claro">Em votação</li>
-          )}
+          {emVotacao && <li className="rounded-md bg-laranja/10 px-1.5 py-0.5 text-laranja-claro">Em votação</li>}
         </ul>
       )}
 
       <div className="flex flex-wrap items-center gap-1.5">
         <div className="flex flex-wrap items-center gap-1.5 transition-opacity duration-150 md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
-        {anterior && (
-          <button
-            type="button"
-            disabled={ocupado}
-            onClick={() => onMover(cartao, anterior)}
-            className={BOTAO_MINI}
-            aria-label={`Voltar "${cartao.titulo}" para ${anterior}`}
-          >
-            <span aria-hidden="true">←</span> Voltar
-          </button>
-        )}
-        {proxima && (
-          <button
-            type="button"
-            disabled={ocupado}
-            onClick={() => onMover(cartao, proxima)}
-            className={BOTAO_MINI}
-            aria-label={`Avançar "${cartao.titulo}" para ${proxima}`}
-          >
-            Avançar <span aria-hidden="true">→</span>
-          </button>
-        )}
+          {anterior && (
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={() => onMover(cartao, anterior)}
+              className={BOTAO_MINI}
+              aria-label={`Voltar "${cartao.titulo}" para ${anterior}`}
+            >
+              <span aria-hidden="true">←</span> Voltar
+            </button>
+          )}
+          {proxima && (
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={() => onMover(cartao, proxima)}
+              className={BOTAO_MINI}
+              aria-label={`Avançar "${cartao.titulo}" para ${proxima}`}
+            >
+              Avançar <span aria-hidden="true">→</span>
+            </button>
+          )}
         </div>
         <span className="ml-auto flex items-center gap-1.5 text-[11px] text-suave">
           {cartao.horasEstimadas !== null ? (
@@ -386,7 +401,10 @@ function CartaoNoBoard({
               <span className="sr-only">Responsável: {responsavel.nome}</span>
             </span>
           ) : (
-            <span className="grid size-6 place-items-center rounded-full border border-dashed border-linha-forte text-[10px]" title="Sem responsável">
+            <span
+              className="grid size-6 place-items-center rounded-full border border-dashed border-linha-forte text-[10px]"
+              title="Sem responsável"
+            >
               <span aria-hidden="true">?</span>
               <span className="sr-only">Sem responsável</span>
             </span>
@@ -416,18 +434,22 @@ function PainelAtencao({
   const nome = (id: string | null) => time.find((m) => m.usuarioId === id)?.nome ?? "Sem responsável";
 
   return (
-    <details className="group alerta rounded-2xl border border-perigo/50 bg-perigo/[0.07]">
+    <details className="group alerta min-w-0 flex-1 basis-80 rounded-2xl border border-perigo/50 bg-perigo/[0.07]">
       <summary className="flex cursor-pointer list-none items-center gap-3 rounded-2xl px-4 py-2.5 text-sm marker:hidden focus-visible:outline-2 focus-visible:outline-laranja [&::-webkit-details-marker]:hidden">
         <span aria-hidden="true" className="size-2 rounded-full bg-perigo" />
         <strong className="font-semibold text-perigo">
           {alertas.length} {alertas.length === 1 ? "cartão pede" : "cartões pedem"} atenção
         </strong>
         <span className="text-suave">atrasados ou bloqueados</span>
-        <svg viewBox="0 0 16 16" aria-hidden="true" className="ml-auto size-4 text-suave transition-transform duration-200 ease-suave group-open:rotate-180">
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          className="ml-auto size-4 text-suave transition-transform duration-200 ease-suave group-open:rotate-180"
+        >
           <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </summary>
-      <div className="surgir overflow-x-auto border-t border-perigo/30 px-4 py-3">
+      <div className="surgir max-h-56 overflow-auto border-t border-perigo/30 px-4 py-3">
         <table className="w-full min-w-[40rem] text-left text-sm">
           <thead className="text-xs text-suave">
             <tr>
@@ -444,7 +466,11 @@ function PainelAtencao({
               return (
                 <tr key={a.cartaoId}>
                   <td className="py-2 pr-3">
-                    <button type="button" onClick={() => onAbrir(c.id)} className="text-left font-medium hover:text-laranja-claro focus-visible:outline-2 focus-visible:outline-laranja">
+                    <button
+                      type="button"
+                      onClick={() => onAbrir(c.id)}
+                      className="text-left font-medium hover:text-laranja-claro focus-visible:outline-2 focus-visible:outline-laranja"
+                    >
                       {c.titulo}
                     </button>
                   </td>
@@ -458,7 +484,9 @@ function PainelAtencao({
                         : "–"}
                   </td>
                   <td className="py-2 text-suave">
-                    {[a.prazo?.atrasado && "Passou do tempo estimado", c.bloqueado && `Bloqueado: ${c.motivoBloqueio}`].filter(Boolean).join(". ")}
+                    {[a.prazo?.atrasado && "Passou do tempo estimado", c.bloqueado && `Bloqueado: ${c.motivoBloqueio}`]
+                      .filter(Boolean)
+                      .join(". ")}
                   </td>
                 </tr>
               );

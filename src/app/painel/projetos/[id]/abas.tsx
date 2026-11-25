@@ -20,7 +20,7 @@ export const eAba = (v: unknown): v is IdAba => ABAS.some((a) => a.id === v);
 // Só aparecem as abas que o papel da pessoa usa (ver papeis.ts).
 export function Abas({ projetoId, atual, visiveis }: { projetoId: string; atual: IdAba; visiveis: IdAba[] }) {
   return (
-    <nav aria-label="Seções do projeto" className="sem-barra -mx-4 overflow-x-auto px-4">
+    <nav aria-label="Seções do projeto" className="sem-barra -mx-4 shrink-0 overflow-x-auto px-4">
       <div className="flex w-max gap-1 rounded-xl border border-linha bg-painel p-1">
         {ABAS.filter((a) => visiveis.includes(a.id)).map((a) => {
           const ativa = a.id === atual;

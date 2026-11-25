@@ -76,12 +76,19 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
 
   return (
     <>
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <Link href="/painel" className="w-fit text-sm text-suave transition-colors hover:text-texto">
-            ← Meus projetos
-          </Link>
-          <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{projeto.nome}</h1>
+      <div className="flex shrink-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              href="/painel"
+              title="Meus projetos"
+              className="-ml-1.5 rounded-lg px-1.5 py-0.5 text-lg text-suave transition-colors hover:bg-elevado hover:text-texto focus-visible:outline-2 focus-visible:outline-laranja"
+            >
+              <span aria-hidden="true">←</span>
+              <span className="sr-only">Voltar para Meus projetos</span>
+            </Link>
+            <h1 className="truncate text-2xl font-semibold tracking-tight">{projeto.nome}</h1>
+          </div>
           <p className="text-sm text-suave">
             Você é <strong className="font-medium text-texto">{NOME_DA_FUNCAO[funcao]}</strong>
             {funcao === "po" && " (gestor)"}, {membros} {membros === 1 ? "integrante" : "integrantes"}
@@ -94,7 +101,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
             ["Pontos feitos", `${pontosConcluidos}/${pontosTotais}`],
             ["Horas usadas", `${formatarNumero(horas.usadas)}/${projeto.horasContratadas ?? "?"} h`],
           ].map(([rotulo, valor]) => (
-            <div key={rotulo} className="flex flex-col px-4 py-2">
+            <div key={rotulo} className="flex flex-col px-4 py-1.5">
               <dt className="text-xs text-suave">{rotulo}</dt>
               <dd className="text-base font-semibold tabular-nums">{valor}</dd>
             </div>
@@ -105,7 +112,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
       <Abas projetoId={projeto.id} atual={aba} visiveis={visiveis} />
 
       {aba === "board" && (
-        <>
+        <div data-tela-cheia className="flex flex-col gap-3 md:min-h-0 md:flex-1">
           <FaixaSprint projetoId={projeto.id} sprint={ativa} cartoes={cartoes} hoje={diaLocal(agora)} />
           {funcao === "po" && !projeto.cadastroCompleto && (
             <p className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-sm">
@@ -125,7 +132,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
             agora={agora}
             meuId={usuario.id}
           />
-        </>
+        </div>
       )}
 
       {aba === "sprint" && (
@@ -360,7 +367,8 @@ function CarregandoBoard() {
 
 export default function PaginaProjeto({ params, searchParams }: Props) {
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 py-6 sm:py-8">
+    <main className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-5 md:has-[[data-tela-cheia]]:h-[calc(100dvh-3.5rem)] md:has-[[data-tela-cheia]]:flex-none md:has-[[data-tela-cheia]]:overflow-hidden md:has-[[data-tela-cheia]]:py-4">
+      {/* Na aba Board (telas médias para cima) a página não rola: tudo cabe na tela e só as colunas rolam. */}
       <Suspense fallback={<CarregandoBoard />}>
         <ConteudoProjeto params={params} searchParams={searchParams} />
       </Suspense>

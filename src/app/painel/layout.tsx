@@ -34,17 +34,18 @@ async function ContaDoUsuario() {
 export default function LayoutPainel({ children }: LayoutProps<"/painel">) {
   return (
     <Avisos>
-    <div className="flex flex-1 flex-col bg-fundo">
-      <header className="sticky top-0 z-20 border-b border-linha bg-fundo/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-2.5">
-          <Logo href="/painel" />
-          <Suspense>
-            <ContaDoUsuario />
-          </Suspense>
-        </div>
-      </header>
-      {children}
-    </div>
+      <div className="flex min-h-dvh flex-1 flex-col bg-fundo">
+        {/* Altura fixa (3.5rem): o board usa a altura da tela menos o topo. */}
+        <header className="sticky top-0 z-20 h-14 shrink-0 border-b border-linha bg-fundo/85 backdrop-blur-md">
+          <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-4 px-4">
+            <Logo href="/painel" />
+            <Suspense>
+              <ContaDoUsuario />
+            </Suspense>
+          </div>
+        </header>
+        {children}
+      </div>
     </Avisos>
   );
 }
