@@ -62,7 +62,7 @@ export function FormularioCadastro() {
         required
         erro={estado.erros?.confirmacao}
       />
-      <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+      <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
         {enviando ? "Criando conta…" : "Criar conta"}
       </button>
     </form>

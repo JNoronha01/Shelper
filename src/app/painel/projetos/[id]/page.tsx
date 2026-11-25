@@ -36,7 +36,10 @@ import { horasDoContrato } from "@/lib/board/gargalo";
 
 const formatarNumero = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 import { montarPainel, PERIODO_TUDO } from "@/lib/metricas/painel";
-import { Abas, eAba, type IdAba } from "./abas";
+import { eAba, type IdAba } from "./abas";
+import { ConteudoAba, ProvedorAbas } from "./navegacao-abas";
+import { NomeDoProjeto, TransicaoPagina } from "@/components/transicao-pagina";
+import { TituloCarregando } from "../../projeto-aberto";
 import { Board } from "./board";
 import { FaixaSprint } from "./faixa-sprint";
 import { Historico } from "./historico";
@@ -81,13 +84,16 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           <div className="flex min-w-0 items-center gap-2">
             <Link
               href="/painel"
+              transitionTypes={["voltar"]}
               title="Meus projetos"
               className="-ml-1.5 rounded-lg px-1.5 py-0.5 text-lg text-suave transition-colors hover:bg-elevado hover:text-texto focus-visible:outline-2 focus-visible:outline-laranja"
             >
               <span aria-hidden="true">←</span>
               <span className="sr-only">Voltar para Meus projetos</span>
             </Link>
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{projeto.nome}</h1>
+            <NomeDoProjeto id={projeto.id}>
+              <h1 className="truncate text-2xl font-semibold tracking-tight">{projeto.nome}</h1>
+            </NomeDoProjeto>
           </div>
           <p className="text-sm text-suave">
             Você é <strong className="font-medium text-texto">{NOME_DA_FUNCAO[funcao]}</strong>
@@ -109,84 +115,93 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
         </dl>
       </div>
 
-      <Abas projetoId={projeto.id} atual={aba} visiveis={visiveis} />
-
-      {aba === "board" && (
-        <div data-tela-cheia className="flex flex-col gap-3 md:min-h-0 md:flex-1">
-          <FaixaSprint projetoId={projeto.id} sprint={ativa} cartoes={cartoes} hoje={diaLocal(agora)} />
-          {funcao === "po" && !projeto.cadastroCompleto && (
-            <p className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-sm">
-              <span>Falta completar o cadastro do projeto (horas, prazo e metas). Sem ele, as métricas ficam sem referência.</span>
-              <Link href={`/painel/projetos/${projeto.id}?aba=projeto`} className="font-medium text-laranja-claro hover:text-laranja">
-                Completar cadastro
-              </Link>
-            </p>
+      <ProvedorAbas projetoId={projeto.id} atual={aba} visiveis={visiveis}>
+        <ConteudoAba telaCheia={aba === "board"}>
+          {aba === "board" && (
+            <div className="flex flex-col gap-3 md:min-h-0 md:flex-1">
+              <FaixaSprint projetoId={projeto.id} sprint={ativa} cartoes={cartoes} hoje={diaLocal(agora)} />
+              {funcao === "po" && !projeto.cadastroCompleto && (
+                <p className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-sm">
+                  <span>Falta completar o cadastro do projeto (horas, prazo e metas). Sem ele, as métricas ficam sem referência.</span>
+                  <Link href={`/painel/projetos/${projeto.id}?aba=projeto`} className="font-medium text-laranja-claro hover:text-laranja">
+                    Completar cadastro
+                  </Link>
+                </p>
+              )}
+              <Board
+                projetoId={projeto.id}
+                limites={limites}
+                cartoes={cartoes}
+                votacoes={votacoes}
+                funcao={funcao}
+                time={dados.time}
+                agora={agora}
+                meuId={usuario.id}
+              />
+            </div>
           )}
-          <Board
-            projetoId={projeto.id}
-            limites={limites}
-            cartoes={cartoes}
-            votacoes={votacoes}
-            funcao={funcao}
-            time={dados.time}
-            agora={agora}
-            meuId={usuario.id}
-          />
-        </div>
-      )}
 
-      {aba === "sprint" && (
-        <div className="flex flex-col gap-6">
-          {ativa ? (
-            <SprintAtiva sprint={ativa} cartoes={cartoes} backlog={backlog} podeGerir={pode(funcao, "gerirSprint")} />
-          ) : pode(funcao, "gerirSprint") ? (
-            <NovaSprint
+          {aba === "sprint" && (
+            <div className="flex flex-col gap-6">
+              {ativa ? (
+                <SprintAtiva sprint={ativa} cartoes={cartoes} backlog={backlog} podeGerir={pode(funcao, "gerirSprint")} />
+              ) : pode(funcao, "gerirSprint") ? (
+                <NovaSprint
+                  projetoId={projeto.id}
+                  backlog={backlog}
+                  hoje={diaLocal(agora)}
+                  numero={sprints.length + 1}
+                  duracao={projeto.duracaoSprint ?? 14}
+                />
+              ) : (
+                <p className="rounded-2xl border border-dashed border-linha-forte p-6 text-center text-sm text-suave">
+                  Nenhuma Sprint ativa. O PO ou o SM cria a próxima.
+                </p>
+              )}
+              <SprintsEncerradas sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
+              {pode(funcao, "gerirSprint") && <SprintAnterior projetoId={projeto.id} hoje={diaLocal(agora)} />}
+            </div>
+          )}
+          {(aba === "metricas" || aba === "minhas") && (
+            <AbaMetricas
+              aba={aba}
+              // Dev: sempre ele mesmo. PO e SM: a pessoa do filtro, se for do time.
+              pessoa={aba === "minhas" ? usuario.id : dados.time.find((m) => m.usuarioId === consulta.pessoa)?.usuarioId}
               projetoId={projeto.id}
-              backlog={backlog}
-              hoje={diaLocal(agora)}
-              numero={sprints.length + 1}
-              duracao={projeto.duracaoSprint ?? 14}
+              cartoes={cartoes}
+              sprints={sprints}
+              metas={metas}
+              escolhida={typeof consulta.periodo === "string" ? consulta.periodo : "tudo"}
+              agora={agora}
+              time={dados.time}
+              limites={limites}
             />
-          ) : (
-            <p className="rounded-2xl border border-dashed border-linha-forte p-6 text-center text-sm text-suave">
-              Nenhuma Sprint ativa. O PO ou o SM cria a próxima.
-            </p>
           )}
-          <SprintsEncerradas sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
-          {pode(funcao, "gerirSprint") && <SprintAnterior projetoId={projeto.id} hoje={diaLocal(agora)} />}
-        </div>
-      )}
-      {(aba === "metricas" || aba === "minhas") && (
-        <AbaMetricas
-          aba={aba}
-          // Dev: sempre ele mesmo. PO e SM: a pessoa do filtro, se for do time.
-          pessoa={aba === "minhas" ? usuario.id : dados.time.find((m) => m.usuarioId === consulta.pessoa)?.usuarioId}
-          projetoId={projeto.id}
-          cartoes={cartoes}
-          sprints={sprints}
-          metas={metas}
-          escolhida={typeof consulta.periodo === "string" ? consulta.periodo : "tudo"}
-          agora={agora}
-          time={dados.time}
-          limites={limites}
-        />
-      )}
-      {aba === "historico" && (
-        <AbaHistorico projetoId={projeto.id} consulta={consulta} sprints={sprints} time={dados.time} cartoes={cartoes} meuId={usuario.id} />
-      )}
-      {aba === "votacao" && (
-        <AbaVotacao
-          projetoId={projeto.id}
-          votacoes={votacoes}
-          cartoes={cartoes}
-          totalMembros={membros}
-          meuId={usuario.id}
-          limites={limites}
-          podeConduzir={pode(funcao, "conduzirVotacao")}
-        />
-      )}
-      {aba === "time" && <AbaTime projetoId={projeto.id} funcao={funcao} meuId={usuario.id} agora={agora} />}
-      {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} />}
+          {aba === "historico" && (
+            <AbaHistorico
+              projetoId={projeto.id}
+              consulta={consulta}
+              sprints={sprints}
+              time={dados.time}
+              cartoes={cartoes}
+              meuId={usuario.id}
+            />
+          )}
+          {aba === "votacao" && (
+            <AbaVotacao
+              projetoId={projeto.id}
+              votacoes={votacoes}
+              cartoes={cartoes}
+              totalMembros={membros}
+              meuId={usuario.id}
+              limites={limites}
+              podeConduzir={pode(funcao, "conduzirVotacao")}
+            />
+          )}
+          {aba === "time" && <AbaTime projetoId={projeto.id} funcao={funcao} meuId={usuario.id} agora={agora} />}
+          {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} />}
+        </ConteudoAba>
+      </ProvedorAbas>
     </>
   );
 }
@@ -352,14 +367,22 @@ async function AbaTime({ projetoId, funcao, meuId, agora }: { projetoId: string;
   );
 }
 
+// Esqueleto no formato da página: título (já com o nome do projeto clicado), números, abas e colunas.
 function CarregandoBoard() {
   return (
-    <div className="flex flex-col gap-6" aria-busy="true">
+    <div className="flex flex-col gap-4" aria-busy="true">
       <p className="sr-only">Carregando o board…</p>
-      <div className="h-9 w-64 animate-pulse rounded-lg bg-elevado" />
-      <div className="grid grid-flow-col auto-cols-[minmax(15rem,1fr)] gap-4 overflow-hidden">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-2">
+          <TituloCarregando />
+          <div className="esqueleto h-4 w-48 rounded-md" />
+        </div>
+        <div className="esqueleto h-12 w-96 max-w-full rounded-xl" />
+      </div>
+      <div className="esqueleto h-10 w-[36rem] max-w-full rounded-xl" />
+      <div className="grid grid-flow-col auto-cols-[17.5rem] gap-3 overflow-hidden xl:auto-cols-fr">
         {COLUNAS.map((c) => (
-          <div key={c} className="h-72 animate-pulse rounded-xl bg-elevado" />
+          <div key={c} className="esqueleto h-[60vh] rounded-coluna" />
         ))}
       </div>
     </div>
@@ -368,11 +391,13 @@ function CarregandoBoard() {
 
 export default function PaginaProjeto({ params, searchParams }: Props) {
   return (
-    <main className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-5 md:has-[[data-tela-cheia]]:h-[calc(100dvh-3.5rem)] md:has-[[data-tela-cheia]]:flex-none md:has-[[data-tela-cheia]]:overflow-hidden md:has-[[data-tela-cheia]]:py-4">
-      {/* Na aba Board (telas médias para cima) a página não rola: tudo cabe na tela e só as colunas rolam. */}
-      <Suspense fallback={<CarregandoBoard />}>
-        <ConteudoProjeto params={params} searchParams={searchParams} />
-      </Suspense>
-    </main>
+    <TransicaoPagina>
+      <main className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-5 md:has-[[data-tela-cheia]]:h-[calc(100dvh-3.5rem)] md:has-[[data-tela-cheia]]:flex-none md:has-[[data-tela-cheia]]:overflow-hidden md:has-[[data-tela-cheia]]:py-4">
+        {/* Na aba Board (telas médias para cima) a página não rola: tudo cabe na tela e só as colunas rolam. */}
+        <Suspense fallback={<CarregandoBoard />}>
+          <ConteudoProjeto params={params} searchParams={searchParams} />
+        </Suspense>
+      </main>
+    </TransicaoPagina>
   );
 }

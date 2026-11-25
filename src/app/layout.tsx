@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter_Tight } from "next/font/google";
+import { Confirmacoes } from "@/components/confirmacoes";
 import "./globals.css";
 
 // Inter Tight: compacta e legível em texto pequeno, com números de largura fixa (tabular-nums).
@@ -19,7 +20,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="pt-BR"
       className={`${interTight.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Confirmacoes />
+      </body>
     </html>
   );
 }

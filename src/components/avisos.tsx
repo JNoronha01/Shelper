@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 // sozinhos depois de alguns segundos. Ficam no layout do painel, então continuam na tela
 // mesmo quando a página recarrega os dados depois de salvar.
 type Tipo = "ok" | "info" | "erro";
-type Aviso = { id: number; tipo: Tipo; texto: string };
+type Aviso = { id: number; tipo: Tipo; texto: string; saindo?: boolean };
 
 const Contexto = createContext<(texto: string, tipo?: Tipo) => void>(() => {});
 
@@ -23,11 +23,15 @@ const COR: Record<Tipo, string> = {
 export function Avisos({ children }: { children: ReactNode }) {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
 
-  const fechar = useCallback((id: number) => setAvisos((a) => a.filter((x) => x.id !== id)), []);
+  // Sair: marca o aviso, deixa a animação de saída rodar (180 ms) e só então tira da lista.
+  const fechar = useCallback((id: number) => {
+    setAvisos((a) => a.map((x) => (x.id === id ? { ...x, saindo: true } : x)));
+    setTimeout(() => setAvisos((a) => a.filter((x) => x.id !== id)), 180);
+  }, []);
   const avisar = useCallback(
     (texto: string, tipo: Tipo = "ok") => {
       const id = Date.now() + Math.random();
-      setAvisos((a) => [...a.slice(-2), { id, tipo, texto }]);
+      setAvisos((a) => [...a.filter((x) => !x.saindo).slice(-2), { id, tipo, texto }]);
       setTimeout(() => fechar(id), tipo === "erro" ? 7000 : 4000);
     },
     [fechar],
@@ -45,7 +49,7 @@ export function Avisos({ children }: { children: ReactNode }) {
           <li
             key={a.id}
             role={a.tipo === "erro" ? "alert" : "status"}
-            className="surgir pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-linha-forte bg-elevado px-4 py-3 text-sm text-texto shadow-[0_16px_40px_-12px_rgb(0_0_0/0.8)]"
+            className={`${a.saindo ? "aviso-sai" : "aviso-entra"} pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-linha-forte bg-elevado px-4 py-3 text-sm text-texto shadow-[0_16px_40px_-12px_rgb(0_0_0/0.8)]`}
           >
             <span aria-hidden="true" className={`mt-1.5 size-2 shrink-0 rounded-full ${COR[a.tipo]}`} />
             <span className="flex-1">{a.texto}</span>

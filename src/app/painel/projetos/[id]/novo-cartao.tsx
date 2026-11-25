@@ -162,7 +162,7 @@ function Formulario({
             <button type="button" onClick={onFechar} className={BOTAO_SECUNDARIO}>
               Cancelar
             </button>
-            <button type="submit" name="confirmarWip" value="sim" disabled={enviando} className={BOTAO_PRINCIPAL}>
+            <button aria-busy={enviando} type="submit" name="confirmarWip" value="sim" disabled={enviando} className={BOTAO_PRINCIPAL}>
               {enviando ? "Criando…" : "Criar mesmo assim"}
             </button>
           </div>
@@ -172,7 +172,7 @@ function Formulario({
           <button type="button" onClick={onFechar} className={BOTAO_SECUNDARIO}>
             Cancelar
           </button>
-          <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+          <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
             {enviando ? "Criando…" : "Criar cartão"}
           </button>
         </div>

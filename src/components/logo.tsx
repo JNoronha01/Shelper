@@ -12,9 +12,9 @@ export function Marca({ className = "size-7" }: { className?: string }) {
   );
 }
 
-export function Logo({ href = "/" }: { href?: string }) {
+export function Logo({ href = "/", tipos }: { href?: string; tipos?: string[] }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-2 font-semibold tracking-tight text-texto">
+    <Link href={href} transitionTypes={tipos} className="inline-flex items-center gap-2 font-semibold tracking-tight text-texto">
       <Marca />
       <span className="text-lg">Shelper</span>
     </Link>

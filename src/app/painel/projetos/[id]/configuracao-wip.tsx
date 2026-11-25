@@ -50,7 +50,7 @@ export function ConfiguracaoWip({ projetoId, andamento, revisao }: { projetoId: 
             )}
           </div>
         ))}
-        <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
+        <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
           {enviando ? "Salvando…" : "Salvar limites"}
         </button>
         <div className="basis-full empty:hidden">

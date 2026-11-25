@@ -69,7 +69,7 @@ function EditarCadastro({ projeto, metas }: { projeto: Projeto; metas: Metas }) 
         {estado.mensagem && <Aviso tipo="erro">{estado.mensagem}</Aviso>}
         {estado.sucesso && <Aviso tipo="sucesso">{estado.sucesso}</Aviso>}
         <div className="flex justify-end">
-          <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+          <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
             {enviando ? "Salvando…" : "Salvar cadastro"}
           </button>
         </div>

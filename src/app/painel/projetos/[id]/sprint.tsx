@@ -116,7 +116,7 @@ export function NovaSprint({
       <CampoMeta valor={estado.valores?.meta ?? ""} erro={estado.erros?.meta} />
       <p className="basis-full text-xs text-suave">O fim já vem com a duração de Sprint do cadastro ({duracao} dias); pode mudar.</p>
       <ListaBacklog cartoes={backlog} />
-      <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+      <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
         {enviando ? "Criando…" : "Criar Sprint"}
       </button>
       <Mensagens estado={estado} />
@@ -164,7 +164,7 @@ export function SprintAtiva({
             <CampoData nome="inicio" rotulo="Início" valor={edicao.valores?.inicio ?? sprint.inicio} erro={edicao.erros?.inicio} />
             <CampoData nome="fim" rotulo="Fim" valor={edicao.valores?.fim ?? sprint.fim} erro={edicao.erros?.fim} />
             <CampoMeta valor={edicao.valores?.meta ?? sprint.meta ?? ""} erro={edicao.erros?.meta} />
-            <button type="submit" disabled={editando} className={BOTAO_SECUNDARIO}>
+            <button aria-busy={editando} type="submit" disabled={editando} className={BOTAO_SECUNDARIO}>
               {editando ? "Salvando…" : "Salvar"}
             </button>
             <Mensagens estado={edicao} />
@@ -175,7 +175,7 @@ export function SprintAtiva({
             <h3 className="basis-full text-sm font-semibold">Adicionar cartões do Backlog</h3>
             <ListaBacklog cartoes={backlog} />
             {backlog.length > 0 && (
-              <button type="submit" disabled={puxando} className={BOTAO_SECUNDARIO}>
+              <button aria-busy={puxando} type="submit" disabled={puxando} className={BOTAO_SECUNDARIO}>
                 {puxando ? "Movendo…" : "Mover para A fazer"}
               </button>
             )}
@@ -184,7 +184,7 @@ export function SprintAtiva({
 
           <form action={encerrar} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="sprint" value={sprint.id} />
-            <button type="submit" disabled={encerrando} className={BOTAO_SECUNDARIO}>
+            <button aria-busy={encerrando} type="submit" disabled={encerrando} className={BOTAO_SECUNDARIO}>
               {encerrando ? "Encerrando…" : "Encerrar Sprint"}
             </button>
             <span className="text-sm text-suave">Só pode haver uma Sprint ativa por vez. Encerre esta para criar a próxima.</span>
@@ -242,7 +242,7 @@ export function SprintAnterior({ projetoId, hoje }: { projetoId: string; hoje: s
         <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? ""} erro={estado.erros?.inicio} />
         <CampoData nome="fim" rotulo="Fim (antes de hoje)" valor={estado.valores?.fim ?? ""} erro={estado.erros?.fim} />
         <CampoMeta valor={estado.valores?.meta ?? ""} erro={estado.erros?.meta} />
-        <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
+        <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
           {enviando ? "Registrando…" : "Registrar Sprint anterior"}
         </button>
         <span className="sr-only">Hoje é {formatarData(hoje)}.</span>
