@@ -491,3 +491,29 @@ export async function importarTrello(projeto: string, cartoes: unknown): Promise
   const r = data as { criados: number; ignorados: number; eventos: number };
   return { ok: true, criados: r.criados, ignorados: r.ignorados, eventos: r.eventos };
 }
+
+// ---------------------------------------------------------------- Sprint anterior
+
+export async function registrarSprintAnterior(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const projeto = form.get("projeto");
+  const valores = { inicio: String(form.get("inicio") ?? ""), fim: String(form.get("fim") ?? ""), meta: String(form.get("meta") ?? "") };
+  if (!eUuid(projeto)) return { mensagem: SEM_ACESSO };
+  const v = validarSprint(form.get("inicio"), form.get("fim"), form.get("meta"));
+  if (!v.ok) return { erros: v.erros, valores };
+
+  const supabase = await clienteComSessao();
+  const { data, error } = await supabase.rpc("registrar_sprint_anterior", {
+    p_projeto: projeto,
+    p_inicio: v.dados.inicio,
+    p_fim: v.dados.fim,
+    p_meta: v.dados.meta,
+  });
+  if (error) return { mensagem: mensagemDoBanco(error), valores };
+
+  refresh();
+  const r = data as { numero: number; cartoes: number };
+  return {
+    sucesso: `Sprint ${r.numero} registrada com ${r.cartoes} ${r.cartoes === 1 ? "cartão concluído" : "cartões concluídos"} nessas datas.`,
+    versao: Date.now(),
+  };
+}
