@@ -43,7 +43,7 @@ import { Historico } from "./historico";
 import { Graficos, type DadosGraficos } from "./graficos";
 import { Metricas } from "./metricas";
 import { AbaProjeto } from "./projeto";
-import { NovaSprint, SprintAtiva, SprintsEncerradas } from "./sprint";
+import { NovaSprint, SprintAnterior, SprintAtiva, SprintsEncerradas } from "./sprint";
 import { Time } from "./time";
 import { Votacoes } from "./votacao";
 
@@ -153,6 +153,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
             </p>
           )}
           <SprintsEncerradas sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
+          {pode(funcao, "gerirSprint") && <SprintAnterior projetoId={projeto.id} hoje={diaLocal(agora)} />}
         </div>
       )}
       {(aba === "metricas" || aba === "minhas") && (

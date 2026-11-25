@@ -5,7 +5,7 @@ import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO, CAIXA } from "@/components/botoes";
 import type { Cartao, Sprint } from "@/lib/board/dados";
 import { META_SPRINT_MAXIMO } from "@/lib/board/regras";
-import { criarSprint, editarSprint, encerrarSprint, puxarCartoes } from "../../acoes";
+import { criarSprint, editarSprint, encerrarSprint, puxarCartoes, registrarSprintAnterior } from "../../acoes";
 import { ESTADO_INICIAL, type EstadoAcao } from "../../estado";
 
 const formatarData = (iso: string) => iso.split("-").reverse().join("/");
@@ -217,5 +217,37 @@ export function SprintsEncerradas({ sprints, cartoes }: { sprints: Sprint[]; car
         })}
       </ul>
     </section>
+  );
+}
+
+// Sprint que já aconteceu (por exemplo, feita no Trello antes da importação): nasce encerrada
+// e recebe os cartões concluídos nessas datas, para o Burndown e as métricas dela aparecerem.
+export function SprintAnterior({ projetoId, hoje }: { projetoId: string; hoje: string }) {
+  const [estado, acao, enviando] = useActionState(registrarSprintAnterior, ESTADO_INICIAL);
+  return (
+    <details className="group rounded-2xl border border-linha bg-painel">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-laranja [&::-webkit-details-marker]:hidden">
+        Registrar Sprint anterior
+        <span className="font-normal text-suave">para Sprints feitas antes de usar o Shelper</span>
+        <svg viewBox="0 0 16 16" aria-hidden="true" className="ml-auto size-4 text-suave transition-transform duration-200 ease-suave group-open:rotate-180">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </summary>
+      <form key={estado.versao ?? 0} action={acao} noValidate className="surgir flex flex-wrap items-end gap-4 border-t border-linha p-4">
+        <input type="hidden" name="projeto" value={projetoId} />
+        <p className="basis-full text-sm text-suave">
+          A Sprint entra já encerrada, no lugar certo da numeração, e recebe os cartões sem Sprint concluídos entre o início e o fim. Ela pode começar no
+          dia em que outra termina.
+        </p>
+        <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? ""} erro={estado.erros?.inicio} />
+        <CampoData nome="fim" rotulo="Fim (antes de hoje)" valor={estado.valores?.fim ?? ""} erro={estado.erros?.fim} />
+        <CampoMeta valor={estado.valores?.meta ?? ""} erro={estado.erros?.meta} />
+        <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
+          {enviando ? "Registrando…" : "Registrar Sprint anterior"}
+        </button>
+        <span className="sr-only">Hoje é {formatarData(hoje)}.</span>
+        <Mensagens estado={estado} />
+      </form>
+    </details>
   );
 }
