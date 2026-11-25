@@ -76,7 +76,7 @@ function FormularioProjeto({ onCancelar }: { onCancelar: () => void }) {
         <button type="button" onClick={onCancelar} className={BOTAO_SECUNDARIO}>
           Cancelar
         </button>
-        <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+        <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
           {enviando ? "Criando…" : "Criar projeto"}
         </button>
       </div>

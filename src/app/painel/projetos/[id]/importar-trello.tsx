@@ -181,7 +181,7 @@ export function ImportarTrello({ projetoId }: { projetoId: string }) {
             >
               Cancelar
             </button>
-            <button type="button" className={BOTAO_PRINCIPAL} disabled={enviando || !importacao?.cartoes.length} onClick={confirmar}>
+            <button aria-busy={enviando} type="button" className={BOTAO_PRINCIPAL} disabled={enviando || !importacao?.cartoes.length} onClick={confirmar}>
               {enviando ? "Importando…" : `Importar ${importacao?.cartoes.length ?? 0} cartões`}
             </button>
           </div>

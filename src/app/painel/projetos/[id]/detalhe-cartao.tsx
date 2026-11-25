@@ -91,7 +91,12 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
 }
 
 function Status({ erro, ok }: { erro?: string; ok?: string }) {
-  if (erro) return <p className="text-xs text-perigo">{erro}</p>;
+  if (erro)
+    return (
+      <p role="alert" className="text-xs text-perigo">
+        {erro}
+      </p>
+    );
   if (ok)
     return (
       <p role="status" className="text-xs text-bom">
@@ -142,7 +147,7 @@ function TituloEPontos({ cartao }: { cartao: Cartao }) {
             />
             <span className="text-sm text-suave">h</span>
           </span>
-          <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
+          <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
             {enviando ? "Salvando…" : "Salvar"}
           </button>
         </div>
@@ -175,7 +180,7 @@ function Descricao({ cartao }: { cartao: Cartao }) {
         />
         <div className="flex items-center justify-between gap-2">
           <Status erro={estado.erros?.descricao ?? estado.mensagem} ok={estado.sucesso} />
-          <button type="submit" disabled={enviando} className={`${BOTAO_SECUNDARIO} ml-auto`}>
+          <button aria-busy={enviando} type="submit" disabled={enviando} className={`${BOTAO_SECUNDARIO} ml-auto`}>
             {enviando ? "Salvando…" : "Salvar descrição"}
           </button>
         </div>
@@ -257,7 +262,7 @@ function Checklist({ cartao }: { cartao: Cartao }) {
           aria-invalid={estado.erros?.texto ? true : undefined}
           className={`${CAMPO} min-w-0 flex-1`}
         />
-        <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
+        <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
           {enviando ? "…" : "Adicionar"}
         </button>
       </form>
@@ -285,6 +290,7 @@ function VotarPontos({ projetoId, cartao, emVotacao }: { projetoId: string; cart
         ) : (
           <button
             type="button"
+            aria-busy={abrindo}
             disabled={abrindo}
             onClick={() =>
               iniciar(async () => {
@@ -439,7 +445,7 @@ function Bloqueio({ cartao, podeMarcar }: { cartao: Cartao; podeMarcar: boolean 
             className={`${CAMPO} resize-y`}
           />
           <div className="flex items-center gap-2">
-            <button type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
+            <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_SECUNDARIO}>
               {enviando ? "Salvando…" : "Marcar como bloqueado"}
             </button>
             <button type="button" onClick={() => setAbrir(false)} className={BOTAO_TEXTO}>

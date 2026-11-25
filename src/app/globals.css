@@ -57,8 +57,8 @@ body {
   display: none;
 }
 
-/* Pop-up: entra com fade e um leve zoom; o fundo escurece junto. */
-/* A transição fica só no estado aberto: abrir anima, fechar é imediato. */
+/* Pop-up: entra com fade e um leve zoom; o fundo escurece junto.
+   Para fechar, o Modal marca data-fechando, espera a saída (140 ms) e só então fecha o <dialog>. */
 dialog[open] {
   opacity: 1;
   transform: none;
@@ -82,6 +82,15 @@ dialog[open]::backdrop {
     background: rgb(0 0 0 / 0);
   }
 }
+dialog[open][data-fechando] {
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transition-duration: 140ms;
+}
+dialog[open][data-fechando]::backdrop {
+  background: rgb(0 0 0 / 0);
+  transition-duration: 140ms;
+}
 
 /* Cartão que acabou de chegar numa coluna (criado ou movido) "pousa" no lugar. */
 .pousar {
@@ -104,6 +113,260 @@ dialog[open]::backdrop {
   }
 }
 
+/* ------------------------------------------------------------------ Botões */
+
+/* Botão ocupado (aria-busy): um anel girando à esquerda do texto. */
+button[aria-busy="true"]::before {
+  content: "";
+  width: 0.9em;
+  height: 0.9em;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: girar 700ms linear infinite;
+}
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Salvou sem erro: um check aparece no botão por pouco mais de um segundo (ver confirmacoes.tsx). */
+button[data-feito]::after {
+  content: "";
+  width: 0.95em;
+  height: 0.95em;
+  flex-shrink: 0;
+  background: currentColor;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  animation: feito 1200ms var(--ease-suave) both;
+}
+/* No botão laranja o verde some; lá o check usa a cor do texto. */
+button:not(.bg-laranja)[data-feito]::after {
+  background: var(--color-bom);
+}
+@keyframes feito {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  30%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ Avisos */
+
+.aviso-entra {
+  animation: aviso-entra 260ms var(--ease-suave) both;
+}
+@keyframes aviso-entra {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+.aviso-sai {
+  animation: aviso-sai 180ms ease-in both;
+}
+@keyframes aviso-sai {
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+/* ------------------------------------------------------------------ Página inicial */
+
+/* Entrada em sequência, uma vez: cada bloco espera 70 ms a mais que o anterior (--i). */
+.entrada {
+  animation: entrada 520ms var(--ease-suave) both;
+  animation-delay: calc(var(--i, 0) * 70ms + 60ms);
+}
+@keyframes entrada {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* ------------------------------------------------------------------ Esqueletos */
+
+/* Bloco de carregamento com um brilho que passa devagar. */
+.esqueleto {
+  background: linear-gradient(
+    100deg,
+    var(--color-elevado) 30%,
+    color-mix(in srgb, var(--color-elevado) 55%, var(--color-linha-forte)) 50%,
+    var(--color-elevado) 70%
+  );
+  background-size: 300% 100%;
+  animation: brilho 1.4s ease-in-out infinite;
+}
+@keyframes brilho {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* Troca de aba: se o servidor demorar mais de 200 ms, o esqueleto aparece por cima do conteúdo. */
+.carregando-aba {
+  animation: aparecer 160ms ease-out 200ms both;
+}
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+}
+/* Barra fina que corre embaixo das abas enquanto a próxima carrega. */
+.barra-carregando {
+  animation: barra 900ms var(--ease-suave) infinite;
+}
+@keyframes barra {
+  from {
+    transform: translateX(-100%) scaleX(0.4);
+  }
+  to {
+    transform: translateX(250%) scaleX(0.4);
+  }
+}
+
+/* ------------------------------------------------------------------ Board */
+
+/* Número da coluna mudou: entra de baixo. Passou do limite: pisca em amarelo uma vez. */
+.numero-muda {
+  display: inline-block;
+  animation: numero-muda 240ms var(--ease-suave);
+}
+@keyframes numero-muda {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.numero-estoura {
+  animation: estoura 700ms ease-out;
+}
+@keyframes estoura {
+  0% {
+    box-shadow: 0 0 0 0 rgb(217 164 65 / 0.7);
+    transform: scale(1.12);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgb(217 164 65 / 0);
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ Transições de página
+   (View Transitions do navegador, ligadas pelo <ViewTransition> do React).
+   Navegador sem suporte troca a tela na hora, como antes. */
+
+/* O resto da página troca na hora; só o que tem nome (conteúdo, cartões, nome do projeto) anima. */
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* Cliques durante a animação vão para a página nova. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* Cabeçalho fica parado enquanto o conteúdo desliza. */
+::view-transition-group(topo) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(topo) {
+  display: none;
+}
+::view-transition-new(topo) {
+  animation: none;
+}
+
+/* Entrar (Meus projetos → projeto → perfil) desliza para a esquerda; voltar (←) para a direita. */
+::view-transition-old(.ir) {
+  --deslize: -40px;
+  animation:
+    120ms ease-in both sumir,
+    260ms var(--ease-suave) both deslizar reverse;
+}
+::view-transition-new(.ir) {
+  --deslize: 40px;
+  animation:
+    180ms ease-out 80ms both surgir-vt,
+    260ms var(--ease-suave) both deslizar;
+}
+::view-transition-old(.voltar) {
+  --deslize: 40px;
+  animation:
+    120ms ease-in both sumir,
+    260ms var(--ease-suave) both deslizar reverse;
+}
+::view-transition-new(.voltar) {
+  --deslize: -40px;
+  animation:
+    180ms ease-out 80ms both surgir-vt,
+    260ms var(--ease-suave) both deslizar;
+}
+@keyframes deslizar {
+  from {
+    translate: var(--deslize);
+  }
+  to {
+    translate: 0;
+  }
+}
+@keyframes sumir {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes surgir-vt {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Troca de aba: mesmo lugar, conteúdo diferente, então só um fade rápido. */
+::view-transition-old(.aba) {
+  animation: 110ms ease-in both sumir;
+}
+::view-transition-new(.aba) {
+  animation: 170ms ease-out 60ms both surgir-vt;
+}
+
+/* Nome do projeto: o do cartão em Meus projetos vira o título da página. */
+::view-transition-group(.nome) {
+  animation-duration: 300ms;
+  animation-timing-function: var(--ease-suave);
+}
+
+/* Cartão do board: desliza da coluna antiga para a nova; os outros abrem espaço. */
+::view-transition-group(.cartao) {
+  animation-duration: 240ms;
+  animation-timing-function: var(--ease-suave);
+}
+::view-transition-new(.cartao-novo) {
+  animation: 260ms var(--ease-suave) both pousar;
+}
+
 /* Quem pede menos movimento no sistema não vê as animações. */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -113,6 +376,21 @@ dialog[open]::backdrop {
   dialog::backdrop {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  /* O anel do botão ocupado continua girando devagar: ele informa, não decora. */
+  button[aria-busy="true"]::before {
+    animation-duration: 1.4s !important;
+  }
+  .esqueleto,
+  .barra-carregando,
+  .entrada {
+    animation: none !important;
   }
 }
 

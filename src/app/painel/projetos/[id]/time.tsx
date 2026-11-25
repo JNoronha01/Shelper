@@ -185,7 +185,7 @@ function LinkDeConvite({ projetoId, convite, origem, agora }: { projetoId: strin
             className="w-32"
           />
         </div>
-        <button type="submit" disabled={enviando} className={link ? BOTAO_SECUNDARIO : BOTAO_PRINCIPAL}>
+        <button aria-busy={enviando} type="submit" disabled={enviando} className={link ? BOTAO_SECUNDARIO : BOTAO_PRINCIPAL}>
           {enviando ? "Gerando…" : link ? "Gerar link novo" : "Gerar link"}
         </button>
         <div className="basis-full empty:hidden">

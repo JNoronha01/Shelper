@@ -84,7 +84,7 @@ export function FotoENome({ nome, foto }: { nome: string; foto: string | null })
         </div>
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={BOTAO_SECUNDARIO} disabled={enviando} onClick={() => entrada.current?.click()}>
+            <button aria-busy={enviando} type="button" className={BOTAO_SECUNDARIO} disabled={enviando} onClick={() => entrada.current?.click()}>
               {enviando ? "Enviando…" : foto ? "Trocar foto" : "Enviar foto"}
             </button>
             {foto && (
@@ -120,7 +120,7 @@ export function FotoENome({ nome, foto }: { nome: string; foto: string | null })
         {estado.mensagem && <Aviso tipo="erro">{estado.mensagem}</Aviso>}
         {estado.sucesso && <Aviso tipo="sucesso">{estado.sucesso}</Aviso>}
         <div className="flex justify-end">
-          <button type="submit" disabled={salvando} className={BOTAO_PRINCIPAL}>
+          <button aria-busy={salvando} type="submit" disabled={salvando} className={BOTAO_PRINCIPAL}>
             {salvando ? "Salvando…" : "Salvar nome"}
           </button>
         </div>
@@ -147,7 +147,7 @@ export function TrocarEmail({ email }: { email: string }) {
         {estado.mensagem && <Aviso tipo="erro">{estado.mensagem}</Aviso>}
         {estado.sucesso && <Aviso tipo="sucesso">{estado.sucesso}</Aviso>}
         <div className="flex justify-end">
-          <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+          <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
             {enviando ? "Enviando…" : "Trocar e-mail"}
           </button>
         </div>
@@ -174,7 +174,7 @@ export function TrocarSenha() {
         {estado.mensagem && <Aviso tipo="erro">{estado.mensagem}</Aviso>}
         {estado.sucesso && <Aviso tipo="sucesso">{estado.sucesso}</Aviso>}
         <div className="flex justify-end">
-          <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+          <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
             {enviando ? "Salvando…" : "Trocar senha"}
           </button>
         </div>

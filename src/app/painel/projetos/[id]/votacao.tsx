@@ -331,6 +331,7 @@ function NovaVotacao({ projetoId, cartoes, ativas }: { projetoId: string; cartoe
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       <button
         type="button"
+        aria-busy={ocupado}
         disabled={ocupado || (tipo === "pontos" ? !cartaoEscolhido : !colunaEscolhida)}
         onClick={() =>
           executar(() =>

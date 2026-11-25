@@ -38,7 +38,7 @@ export function FormularioEntrada() {
         required
         erro={estado.erros?.senha}
       />
-      <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+      <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
         {enviando ? "Entrando…" : "Entrar"}
       </button>
     </form>

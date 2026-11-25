@@ -12,7 +12,7 @@ export function AceitarConvite({ codigo }: { codigo: string }) {
     <form action={acao} className="flex flex-col gap-3">
       <input type="hidden" name="codigo" value={codigo} />
       {estado.mensagem && <Aviso tipo="erro">{estado.mensagem}</Aviso>}
-      <button type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+      <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
         {enviando ? "Entrando…" : "Entrar no projeto"}
       </button>
     </form>

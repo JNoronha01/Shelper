@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useState, useTransition, type DragEvent } from "react";
+import { startTransition, useEffect, useRef, useState, ViewTransition, type DragEvent } from "react";
 import { useAvisar } from "@/components/avisos";
 import { Avatar } from "@/components/avatar";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
@@ -56,10 +56,18 @@ export function Board({
   // Só o PO cria cartões; o desenvolvedor e o SM movem (o banco confere de novo).
   const podeCriar = pode(funcao, "criarCartao");
   // A tela já mostra o cartão na coluna nova enquanto o servidor grava o evento.
-  const [visiveis, moverNaTela] = useOptimistic(cartoes, (atual: Cartao[], m: { id: string; para: Coluna }) =>
-    atual.map((c) => (c.id === m.id ? { ...c, coluna: m.para } : c)),
-  );
-  const [movendo, iniciar] = useTransition();
+  // Os ajustes locais ficam por cima do que veio do servidor e são descartados quando os dados
+  // novos chegam. A mudança entra com startTransition para o navegador animar o cartão até a
+  // coluna nova (View Transition); a gravação corre fora dela, senão a animação esperaria o servidor.
+  const [base, setBase] = useState(cartoes);
+  const [ajustes, setAjustes] = useState<Record<string, Coluna>>({});
+  if (base !== cartoes) {
+    setBase(cartoes);
+    setAjustes({});
+  }
+  const visiveis = Object.keys(ajustes).length ? cartoes.map((c) => (ajustes[c.id] ? { ...c, coluna: ajustes[c.id] } : c)) : cartoes;
+  const [gravando, setGravando] = useState(0);
+  const movendo = gravando > 0;
   const avisar = useAvisar();
   const [arrastando, setArrastando] = useState<string | null>(null);
   const [alvo, setAlvo] = useState<Coluna | null>(null);
@@ -70,19 +78,46 @@ export function Board({
   const detalhe = detalheId ? (cartoes.find((c) => c.id === detalheId) ?? null) : null;
   const emVotacao = new Set(votacoes.filter((v) => v.situacao !== "encerrada" && v.cartaoId).map((v) => v.cartaoId));
 
+  // Mover em duas etapas: (1) o cartão vai para a coluna nova dentro de uma transição, e o
+  // navegador anima; (2) depois que a tela mudou (efeito abaixo), a mudança é gravada no servidor.
+  // Se as duas fossem juntas, o React esperaria o servidor para mostrar a animação.
+  const fila = useRef<{ cartao: Cartao; de: Coluna; para: Coluna; confirmarWip: boolean }[]>([]);
+  const [rodada, setRodada] = useState(0);
+  // A volta sai do escopo da ação do servidor (setTimeout) para também ser animada.
+  const colocar = (id: string, coluna: Coluna) =>
+    window.setTimeout(() => startTransition(() => setAjustes((a) => ({ ...a, [id]: coluna }))), 0);
+
   function mover(cartao: Cartao, para: Coluna, confirmarWip = false) {
     if (cartao.coluna === para) return;
-    iniciar(async () => {
-      moverNaTela({ id: cartao.id, para });
-      const r = await moverCartao({ cartao: cartao.id, para, confirmarWip });
-      // Coluna cheia: o cartão volta para o lugar e a tela pergunta antes de passar do limite.
-      if (r.status === "wip") setPendente({ cartao, para, limite: r.limite, ocupados: r.ocupados });
-      else if (r.status === "erro") avisar(r.mensagem, "erro");
-      else if (r.status === "ok") {
-        avisar(`"${cartao.titulo}" foi para ${para}${r.acimaDoWip ? ", acima do limite de WIP" : ""}.`, r.acimaDoWip ? "info" : "ok");
-      }
+    fila.current.push({ cartao, de: cartao.coluna, para, confirmarWip });
+    setGravando((n) => n + 1);
+    startTransition(() => {
+      setAjustes((a) => ({ ...a, [cartao.id]: para }));
+      setRodada((r) => r + 1);
     });
   }
+
+  useEffect(() => {
+    const movimentos = fila.current.splice(0);
+    for (const { cartao, de, para, confirmarWip } of movimentos) {
+      moverCartao({ cartao: cartao.id, para, confirmarWip })
+        .then((r) => {
+          // Coluna cheia: o cartão volta para o lugar (animado) e a tela pergunta antes de passar do limite.
+          if (r.status !== "ok") colocar(cartao.id, de);
+          if (r.status === "wip") setPendente({ cartao: { ...cartao, coluna: de }, para, limite: r.limite, ocupados: r.ocupados });
+          else if (r.status === "erro") avisar(r.mensagem, "erro");
+          else if (r.status === "ok") {
+            avisar(`"${cartao.titulo}" foi para ${para}${r.acimaDoWip ? ", acima do limite de WIP" : ""}.`, r.acimaDoWip ? "info" : "ok");
+          }
+        })
+        .catch(() => {
+          colocar(cartao.id, de);
+          avisar("Não foi possível mover o cartão. Confira a conexão e tente de novo.", "erro");
+        })
+        .finally(() => setGravando((n) => n - 1));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- roda uma vez por rodada de movimentos
+  }, [rodada]);
 
   function soltar(e: DragEvent, coluna: Coluna) {
     e.preventDefault();
@@ -124,6 +159,8 @@ export function Board({
             const pontos = daColuna.reduce((s, c) => s + c.pontos, 0);
             const idTitulo = `coluna-${COLUNAS.indexOf(coluna)}`;
             const ehAlvo = alvo === coluna && arrastando !== null;
+            // Coluna onde o cartão vai cair: ganha um espaço tracejado no fim da lista.
+            const abreEspaco = ehAlvo && visiveis.find((c) => c.id === arrastando)?.coluna !== coluna;
             return (
               <li
                 key={coluna}
@@ -146,13 +183,7 @@ export function Board({
                     <h3 id={idTitulo} className="text-sm font-semibold">
                       {coluna}
                     </h3>
-                    <span
-                      className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums transition-colors ${estilo.selo}`}
-                      title={limite === null ? "Cartões na coluna" : "Cartões na coluna / limite de WIP"}
-                    >
-                      {limite === null ? daColuna.length : `${daColuna.length}/${limite}`}
-                      <span className="sr-only">{limite === null ? " cartões" : ` cartões, limite ${limite}`}</span>
-                    </span>
+                    <ContagemWip n={daColuna.length} limite={limite} acima={situacao === "acima"} selo={estilo.selo} />
                   </div>
                   <p className="pl-4 text-xs text-suave">
                     {pontos} {pontos === 1 ? "ponto" : "pontos"}
@@ -165,19 +196,36 @@ export function Board({
                 {/* Cada coluna rola sozinha: com muitos cartões, a página não cresce sem fim. */}
                 <ul className="relative -mr-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1.5 [scrollbar-gutter:stable]">
                   {daColuna.map((cartao) => (
-                    <CartaoNoBoard
+                    // Cada cartão tem nome próprio na View Transition: ao mudar de coluna ele desliza
+                    // até o lugar novo e os outros cartões abrem e fecham espaço (CSS em globals.css).
+                    <ViewTransition
                       key={cartao.id}
-                      cartao={cartao}
-                      ocupado={movendo}
-                      arrastado={arrastando === cartao.id}
-                      onArrastar={setArrastando}
-                      onMover={mover}
-                      onAbrir={() => setDetalheId(cartao.id)}
-                      emVotacao={emVotacao.has(cartao.id)}
-                      responsavel={time.find((m) => m.usuarioId === cartao.responsavelId) ?? null}
-                      agora={agora}
-                    />
+                      name={`cartao-${cartao.id}`}
+                      share="cartao"
+                      update="cartao"
+                      enter="cartao-novo"
+                      default="none"
+                    >
+                      <CartaoNoBoard
+                        key={cartao.id}
+                        cartao={cartao}
+                        ocupado={movendo}
+                        arrastado={arrastando === cartao.id}
+                        onArrastar={setArrastando}
+                        onMover={mover}
+                        onAbrir={() => setDetalheId(cartao.id)}
+                        emVotacao={emVotacao.has(cartao.id)}
+                        responsavel={time.find((m) => m.usuarioId === cartao.responsavelId) ?? null}
+                        agora={agora}
+                      />
+                    </ViewTransition>
                   ))}
+                  {abreEspaco && (
+                    <li
+                      aria-hidden="true"
+                      className="surgir h-16 shrink-0 rounded-cartao border-2 border-dashed border-laranja/40 bg-laranja/[0.03]"
+                    />
+                  )}
                 </ul>
 
                 {podeCriar ? (
@@ -256,6 +304,47 @@ export function Board({
   );
 }
 
+// Cartão "levantado": o navegador mostra uma cópia inclinada, com sombra e borda laranja,
+// presa ao cursor no mesmo ponto em que a pessoa pegou o cartão.
+function levantar(e: DragEvent<HTMLElement>) {
+  const original = e.currentTarget;
+  const caixa = original.getBoundingClientRect();
+  const copia = original.cloneNode(true) as HTMLElement;
+  copia.classList.remove("alerta");
+  Object.assign(copia.style, {
+    position: "fixed",
+    top: "-1000px",
+    left: "-1000px",
+    width: `${caixa.width}px`,
+    rotate: "2.5deg",
+    borderColor: "var(--color-laranja)",
+    boxShadow: "0 22px 40px -14px rgb(0 0 0 / 0.9)",
+    pointerEvents: "none",
+  });
+  document.body.appendChild(copia);
+  e.dataTransfer.setDragImage(copia, e.clientX - caixa.left, e.clientY - caixa.top);
+  window.setTimeout(() => copia.remove(), 0);
+}
+
+// Número de cartões da coluna: quando muda, o número novo entra de baixo;
+// se a coluna passou do limite de WIP, o selo pisca em amarelo uma vez.
+function ContagemWip({ n, limite, acima, selo }: { n: number; limite: number | null; acima: boolean; selo: string }) {
+  const [visto, setVisto] = useState({ n, vezes: 0 });
+  if (visto.n !== n) setVisto({ n, vezes: visto.vezes + 1 });
+  const mudou = visto.vezes > 0;
+  return (
+    <span
+      key={visto.vezes}
+      className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums transition-colors ${selo} ${mudou && acima ? "numero-estoura" : ""}`}
+      title={limite === null ? "Cartões na coluna" : "Cartões na coluna / limite de WIP"}
+    >
+      <span className={mudou ? "numero-muda" : ""}>{n}</span>
+      {limite !== null && `/${limite}`}
+      <span className="sr-only">{limite === null ? " cartões" : ` cartões, limite ${limite}`}</span>
+    </span>
+  );
+}
+
 function CartaoNoBoard({
   cartao,
   ocupado,
@@ -291,12 +380,18 @@ function CartaoNoBoard({
       onDragStart={(e) => {
         e.dataTransfer.setData("text/plain", cartao.id);
         e.dataTransfer.effectAllowed = "move";
+        levantar(e);
         onArrastar(cartao.id);
       }}
       onDragEnd={() => onArrastar(null)}
-      className={`pousar group flex cursor-grab flex-col gap-2.5 rounded-cartao border bg-cartao p-3 transition duration-150 ease-suave active:cursor-grabbing ${
+      className={`group flex cursor-grab flex-col gap-2.5 rounded-cartao border bg-cartao p-3 transition duration-150 ease-suave active:cursor-grabbing ${
         atrasado || cartao.bloqueado ? "alerta border-perigo/70" : concluido ? "border-linha/60 bg-cartao/60" : "border-linha"
-      } ${arrastado ? "scale-[0.98] opacity-40" : "hover:-translate-y-px hover:border-linha-forte hover:shadow-[0_8px_20px_-12px_rgb(0_0_0/0.9)]"}`}
+      } ${
+        arrastado
+          ? // O lugar de onde o cartão saiu fica tracejado e vazio enquanto ele está na mão.
+            "!border-dashed !border-linha-forte !bg-transparent shadow-none [&>*]:opacity-0"
+          : "hover:-translate-y-px hover:border-linha-forte hover:shadow-[0_8px_20px_-12px_rgb(0_0_0/0.9)]"
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <button
