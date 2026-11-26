@@ -460,6 +460,15 @@ export async function carregarMeuPerfil(usuarioId: string): Promise<{ nome: stri
   return data;
 }
 
+// Tours que a pessoa ainda não viu (true = mostrar). Se as colunas ainda não existirem no banco
+// (migração do tour não rodada), não mostra nada em vez de quebrar a página.
+export async function carregarTours(usuarioId: string): Promise<{ painel: boolean; projeto: boolean }> {
+  const supabase = await criarClienteServidor();
+  const { data, error } = await supabase.from("perfis").select("tour_painel_em, tour_projeto_em").eq("id", usuarioId).maybeSingle();
+  if (error || !data) return { painel: false, projeto: false };
+  return { painel: data.tour_painel_em === null, projeto: data.tour_projeto_em === null };
+}
+
 // Chaves da API que a própria pessoa criou neste projeto (o RLS só devolve as dela, e sem o hash).
 export type ChaveApi = {
   id: string;

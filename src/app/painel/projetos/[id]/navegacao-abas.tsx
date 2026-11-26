@@ -120,7 +120,11 @@ function Abas({
   }, [aba]);
 
   return (
-    <nav aria-label="Seções do projeto" className="sem-barra relative -mx-4 min-w-0 shrink-0 overflow-x-auto px-4 md:mx-0 md:px-0">
+    <nav
+      aria-label="Seções do projeto"
+      data-tour="abas"
+      className="sem-barra relative -mx-4 min-w-0 shrink-0 overflow-x-auto px-4 md:mx-0 md:px-0"
+    >
       <div ref={lista} className="relative flex w-max gap-1 rounded-xl border border-linha bg-painel p-1">
         {marcador && (
           <span

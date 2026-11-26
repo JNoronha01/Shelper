@@ -116,3 +116,22 @@ export async function trocarEmail(_anterior: EstadoAcao, form: FormData): Promis
     versao: Date.now(),
   };
 }
+
+// ---------------------------------------------------------------- Tour de primeiro acesso
+
+// Marca o tour como visto (concluído ou pulado). Sem refresh: o tour já sumiu da tela.
+export async function marcarTour(qual: "painel" | "projeto"): Promise<ResultadoSimples> {
+  if (qual !== "painel" && qual !== "projeto") return { ok: false, mensagem: "Tour desconhecido." };
+  const { supabase } = await sessao();
+  const { error } = await supabase.rpc("marcar_tour", { p_qual: qual });
+  if (error) return { ok: false, mensagem: explicarErroDoBanco(error) };
+  return { ok: true };
+}
+
+// "Refazer o tour" em Meu perfil: zera os dois tours e leva ao painel, onde o primeiro começa.
+export async function refazerTour(): Promise<ResultadoSimples> {
+  const { supabase } = await sessao();
+  const { error } = await supabase.rpc("refazer_tour");
+  if (error) return { ok: false, mensagem: explicarErroDoBanco(error) };
+  redirect("/painel");
+}

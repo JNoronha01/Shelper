@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useOptimistic, useState, useTransition } from "react";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, BOTAO_TEXTO, CAIXA, CAMPO } from "@/components/botoes";
 import { Modal } from "@/components/modal";
 import { useAvisar } from "@/components/avisos";
@@ -54,8 +54,7 @@ export function DetalheCartao({
         // key: ao trocar de cartão, os formulários começam do zero.
         <div key={cartao.id} className="flex flex-col gap-6">
           <p className="text-sm text-suave">
-            Em <strong className="font-medium text-texto">{cartao.coluna}</strong> · criado em{" "}
-            {formatarDataHora(cartao.criadoEm)}
+            Em <strong className="font-medium text-texto">{cartao.coluna}</strong> · criado em {formatarDataHora(cartao.criadoEm)}
           </p>
           <Prazo cartao={cartao} agora={agora} />
           {podeEditar ? (
@@ -65,16 +64,16 @@ export function DetalheCartao({
               <span className="text-suave">Pontos: </span>
               <strong className="font-semibold tabular-nums">{cartao.pontos}</strong>
               <span className="text-suave"> · Horas estimadas: </span>
-              <strong className="font-semibold tabular-nums">{cartao.horasEstimadas === null ? "sem estimativa" : formatarDuracao(cartao.horasEstimadas)}</strong>
+              <strong className="font-semibold tabular-nums">
+                {cartao.horasEstimadas === null ? "sem estimativa" : formatarDuracao(cartao.horasEstimadas)}
+              </strong>
             </p>
           )}
           <Responsavel cartao={cartao} time={time} meuId={meuId} podeEscolher={podeConduzir} />
           <Bloqueio cartao={cartao} podeMarcar={podeConduzir || cartao.responsavelId === meuId} />
           <Descricao cartao={cartao} />
           <Checklist cartao={cartao} />
-          {(podeConduzir || emVotacao) && (
-            <VotarPontos projetoId={projetoId} cartao={cartao} emVotacao={emVotacao} />
-          )}
+          {(podeConduzir || emVotacao) && <VotarPontos projetoId={projetoId} cartao={cartao} emVotacao={emVotacao} />}
         </div>
       )}
     </Modal>
@@ -189,19 +188,27 @@ function Descricao({ cartao }: { cartao: Cartao }) {
   );
 }
 
+type MudancaItem = { tipo: "marcar"; id: string; feito: boolean } | { tipo: "remover"; id: string };
+
 function Checklist({ cartao }: { cartao: Cartao }) {
   const [estado, acao, enviando] = useActionState(adicionarItem, ESTADO_INICIAL);
-  const [ocupado, iniciar] = useTransition();
+  const [, iniciar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
-  const feitos = cartao.checklist.filter((i) => i.feito).length;
-  const total = cartao.checklist.length;
+  // A caixa muda na hora (useOptimistic) e o banco grava em segundo plano. Se o banco recusar,
+  // a tela volta ao estado real sozinha e a mensagem explica o motivo.
+  const [itens, aplicar] = useOptimistic(cartao.checklist, (atual, m: MudancaItem) =>
+    m.tipo === "marcar" ? atual.map((i) => (i.id === m.id ? { ...i, feito: m.feito } : i)) : atual.filter((i) => i.id !== m.id),
+  );
+  const feitos = itens.filter((i) => i.feito).length;
+  const total = itens.length;
   const porcentagem = total ? Math.round((feitos / total) * 100) : 0;
 
-  function executar(acaoRapida: () => Promise<{ ok: boolean; mensagem?: string }>) {
+  function mudar(m: MudancaItem) {
     setErro(null);
     iniciar(async () => {
-      const r = await acaoRapida();
-      if (!r.ok) setErro(r.mensagem ?? "Não foi possível salvar.");
+      aplicar(m);
+      const r = m.tipo === "marcar" ? await marcarItem(m.id, m.feito) : await removerItem(m.id);
+      if (!r.ok) setErro(r.mensagem ?? "O banco não confirmou a mudança. Recarregue a página e tente de novo.");
     });
   }
 
@@ -220,26 +227,21 @@ function Checklist({ cartao }: { cartao: Cartao }) {
         </div>
       )}
       <ul className="flex flex-col gap-1">
-        {cartao.checklist.map((item) => (
+        {itens.map((item) => (
           <li key={item.id} className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-fundo">
             <input
               id={`item-${item.id}`}
               type="checkbox"
               checked={item.feito}
-              disabled={ocupado}
-              onChange={(e) => executar(() => marcarItem(item.id, e.target.checked))}
+              onChange={(e) => mudar({ tipo: "marcar", id: item.id, feito: e.target.checked })}
               className={CAIXA}
             />
-            <label
-              htmlFor={`item-${item.id}`}
-              className={`flex-1 text-sm break-words ${item.feito ? "text-suave line-through" : ""}`}
-            >
+            <label htmlFor={`item-${item.id}`} className={`flex-1 text-sm break-words ${item.feito ? "text-suave line-through" : ""}`}>
               {item.texto}
             </label>
             <button
               type="button"
-              disabled={ocupado}
-              onClick={() => executar(() => removerItem(item.id))}
+              onClick={() => mudar({ tipo: "remover", id: item.id })}
               className={`${BOTAO_TEXTO} opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:!text-perigo`}
               aria-label={`Remover o item "${item.texto}"`}
             >
@@ -317,7 +319,9 @@ function Prazo({ cartao, agora }: { cartao: Cartao; agora: string }) {
   if (!prazo) return null;
   const largura = Math.min(100, prazo.porcentagem);
   return (
-    <div className={`flex flex-col gap-1.5 rounded-xl border px-4 py-3 ${prazo.atrasado ? "border-perigo/50 bg-perigo/10" : "border-linha bg-cartao"}`}>
+    <div
+      className={`flex flex-col gap-1.5 rounded-xl border px-4 py-3 ${prazo.atrasado ? "border-perigo/50 bg-perigo/10" : "border-linha bg-cartao"}`}
+    >
       <p className="text-sm">
         {prazo.atrasado ? (
           <strong className="font-semibold text-perigo">Gargalo: passou do tempo estimado. </strong>
@@ -362,8 +366,13 @@ function Responsavel({ cartao, time, meuId, podeEscolher }: { cartao: Cartao; ti
         <Seletor
           rotuloAcessivel="Responsável pelo cartão"
           valor={cartao.responsavelId ?? ""}
-          onChange={(v) => trocar(v || null, v ? `Responsável: ${time.find((m) => m.usuarioId === v)?.nome ?? ""}.` : "Cartão sem responsável.")}
-          opcoes={[{ valor: "", rotulo: "Sem responsável" }, ...time.map((m) => ({ valor: m.usuarioId, rotulo: m.nome, detalhe: SIGLA_DA_FUNCAO[m.funcao] }))]}
+          onChange={(v) =>
+            trocar(v || null, v ? `Responsável: ${time.find((m) => m.usuarioId === v)?.nome ?? ""}.` : "Cartão sem responsável.")
+          }
+          opcoes={[
+            { valor: "", rotulo: "Sem responsável" },
+            ...time.map((m) => ({ valor: m.usuarioId, rotulo: m.nome, detalhe: SIGLA_DA_FUNCAO[m.funcao] })),
+          ]}
           className="w-full sm:w-72"
         />
       ) : (

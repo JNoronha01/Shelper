@@ -16,6 +16,7 @@ async function ContaDoUsuario() {
     <div className="flex min-w-0 items-center gap-2 text-sm">
       <Link
         href="/painel/perfil"
+        data-tour="perfil"
         transitionTypes={["ir"]}
         className="flex min-w-0 items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-elevado focus-visible:outline-2 focus-visible:outline-laranja"
         title="Meu perfil"
@@ -23,7 +24,7 @@ async function ContaDoUsuario() {
         <Avatar nome={nome} foto={perfil?.foto} />
         <span className="hidden truncate text-texto sm:inline">{nome}</span>
       </Link>
-      <Link href="/guia" target="_blank" className={`${BOTAO_TEXTO} !text-sm hidden sm:inline-flex`}>
+      <Link href="/guia" target="_blank" data-tour="guia" className={`${BOTAO_TEXTO} !text-sm hidden sm:inline-flex`}>
         Guia<span className="sr-only"> do Shelper (abre em outra aba)</span>
       </Link>
       <Link href="/contato" className={`${BOTAO_TEXTO} !text-sm hidden sm:inline-flex`}>

@@ -32,7 +32,7 @@ export function FaixaSprint({
   const link = `/painel/projetos/${projetoId}?aba=sprint`;
   if (!sprint) {
     return (
-      <div className={`${PILULA} border-dashed border-linha-forte`}>
+      <div data-tour="sprint" className={`${PILULA} border-dashed border-linha-forte`}>
         <span className="truncate text-suave">Nenhuma Sprint ativa</span>
         <Link href={link} className="shrink-0 font-medium text-laranja-claro transition-colors hover:text-laranja">
           Planejar Sprint
@@ -48,7 +48,7 @@ export function FaixaSprint({
   const p = prazo(hoje, sprint);
 
   return (
-    <div className={`${PILULA} border-linha bg-painel`} title={sprint.meta ? `Meta: ${sprint.meta}` : undefined}>
+    <div data-tour="sprint" className={`${PILULA} border-linha bg-painel`} title={sprint.meta ? `Meta: ${sprint.meta}` : undefined}>
       <Link href={link} className="shrink-0 font-semibold transition-colors hover:text-laranja-claro">
         Sprint {sprint.numero}
       </Link>

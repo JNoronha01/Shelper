@@ -139,7 +139,7 @@ export function Board({
       {/* Uma linha só: botão, Sprint, cadastro, aviso de atenção e dica. Sobra altura para as colunas. */}
       <div className="flex shrink-0 flex-wrap items-start gap-3 md:flex-nowrap">
         {podeCriar && (
-          <button type="button" onClick={() => setCriarEm("Backlog")} className={`${BOTAO_PRINCIPAL} shrink-0`}>
+          <button type="button" data-tour="novo-cartao" onClick={() => setCriarEm("Backlog")} className={`${BOTAO_PRINCIPAL} shrink-0`}>
             <span aria-hidden="true" className="text-base leading-none">
               +
             </span>{" "}
@@ -154,7 +154,10 @@ export function Board({
       </div>
 
       <div className="sem-barra -mx-4 overflow-x-auto px-4 pb-1 md:min-h-0 md:flex-1">
-        <ol className="relative grid min-w-max grid-flow-col auto-cols-[17.5rem] gap-3 md:h-full xl:min-w-0 xl:auto-cols-fr">
+        <ol
+          data-tour="colunas"
+          className="relative grid min-w-max grid-flow-col auto-cols-[17.5rem] gap-3 md:h-full xl:min-w-0 xl:auto-cols-fr"
+        >
           {COLUNAS.map((coluna) => {
             const daColuna = visiveis.filter((c) => c.coluna === coluna);
             const limite = limiteDaColuna(coluna, limites);

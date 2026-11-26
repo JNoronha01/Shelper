@@ -4,7 +4,7 @@ import { TransicaoPagina } from "@/components/transicao-pagina";
 import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import { carregarMeuPerfil } from "@/lib/board/dados";
-import { FotoENome, SairDeTodos, TrocarEmail, TrocarSenha } from "./formularios";
+import { FotoENome, RefazerTour, SairDeTodos, TrocarEmail, TrocarSenha } from "./formularios";
 
 export const metadata: Metadata = { title: "Meu perfil · Shelper" };
 
@@ -18,6 +18,7 @@ async function Formularios() {
         <TrocarEmail email={usuario.email} />
         <TrocarSenha />
         <SairDeTodos />
+        <RefazerTour />
       </div>
     </div>
   );

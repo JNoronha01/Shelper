@@ -1,7 +1,6 @@
 // Dados do Shelper que aparecem no rodapé, no contato e nas normas.
-// E-mail de contato: o time vai criar uma conta só do Shelper. Enquanto estiver vazio,
-// o site mostra só o formulário de contato.
-export const EMAIL_CONTATO = "";
+// E-mail de contato do time (conta só do Shelper). Se ficar vazio, o site mostra só o formulário.
+export const EMAIL_CONTATO = "shelper.time@gmail.com";
 export const REPOSITORIO = "https://github.com/JNoronha01/Shelper";
 export const TIME = [
   { nome: "Jorge Noronha Neto", papel: "Product Owner" },

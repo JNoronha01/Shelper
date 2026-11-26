@@ -4,8 +4,11 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
+import { Tour } from "@/components/tour";
+import { TOUR_PROJETO } from "@/lib/tours";
 import {
   carregarBoard,
+  carregarTours,
   carregarMinhasChaves,
   carregarConvite,
   carregarEventosParaCalculo,
@@ -60,7 +63,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
   const consulta = await searchParams;
   if (!eUuid(id)) notFound();
   const usuario = await exigirUsuario();
-  const dados = await carregarBoard(id, usuario.id);
+  const [dados, tours] = await Promise.all([carregarBoard(id, usuario.id), carregarTours(usuario.id)]);
   // Projeto de outro time aparece como inexistente: o RLS não devolve a linha.
   if (!dados) notFound();
 
@@ -100,7 +103,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           <p className="text-sm text-suave">
             Você é <strong className="font-medium text-texto">{NOME_DA_FUNCAO[funcao]}</strong>
             {funcao === "po" && " (gestor)"}, {membros} {membros === 1 ? "integrante" : "integrantes"} ·{" "}
-            <Link href="/guia" target="_blank" className="text-laranja-claro underline-offset-4 hover:underline">
+            <Link href="/guia" target="_blank" data-tour="guia-projeto" className="text-laranja-claro underline-offset-4 hover:underline">
               Guia de uso<span className="sr-only"> (abre em outra aba)</span>
             </Link>
           </p>
@@ -112,7 +115,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
         atual={aba}
         visiveis={visiveis}
         lado={
-          <dl className="flex w-fit shrink-0 divide-x divide-linha rounded-xl border border-linha bg-painel">
+          <dl data-tour="numeros" className="flex w-fit shrink-0 divide-x divide-linha rounded-xl border border-linha bg-painel">
             {[
               ["Cartões", String(cartoes.length)],
               ["Concluídos", String(concluidos.length)],
@@ -219,6 +222,8 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           )}
         </ConteudoAba>
       </ProvedorAbas>
+      {/* Tour do primeiro projeto aberto: começa pelo board, então só na aba Board. */}
+      {tours.projeto && aba === "board" && <Tour qual="projeto" passos={TOUR_PROJETO} />}
     </>
   );
 }
