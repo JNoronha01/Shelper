@@ -3,11 +3,12 @@
 import { useActionState } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_PRINCIPAL } from "@/components/botoes";
-import type { DadosBoard, Metas } from "@/lib/board/dados";
+import type { ChaveApi, DadosBoard, Metas } from "@/lib/board/dados";
 import { CamposCadastro } from "../../campos-cadastro";
 import { editarProjeto } from "../../acoes";
 import { ESTADO_INICIAL } from "../../estado";
 import { ConfiguracaoWip } from "./configuracao-wip";
+import { ConectarIa } from "./conectar-ia";
 import { ImportarTrello } from "./importar-trello";
 
 type Projeto = DadosBoard["projeto"];
@@ -20,13 +21,16 @@ const num = (n: number | null, sufixo: string) => (n === null ? "não informado"
 // O PO edita o cadastro; o SM só vê. Os dois alteram o WIP.
 type Horas = { usadas: number; planejadas: number; semEstimativa: number };
 
-export function AbaProjeto({ projeto, metas, podeEditar, horas }: { projeto: Projeto; metas: Metas; podeEditar: boolean; horas: Horas }) {
+export function AbaProjeto({ projeto, metas, podeEditar, horas, chaves }: { projeto: Projeto; metas: Metas; podeEditar: boolean; horas: Horas; chaves: ChaveApi[] }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
       {podeEditar ? <EditarCadastro projeto={projeto} metas={metas} /> : <Resumo projeto={projeto} metas={metas} />}
       <div className="flex flex-col gap-6">
         <HorasDoContrato contratadas={projeto.horasContratadas} horas={horas} />
         <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
+      </div>
+      <div className="lg:col-span-2">
+        <ConectarIa projetoId={projeto.id} chaves={chaves} />
       </div>
       {podeEditar && (
         <div className="lg:col-span-2">

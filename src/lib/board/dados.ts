@@ -424,3 +424,38 @@ export async function carregarMeuPerfil(usuarioId: string): Promise<{ nome: stri
   if (error) falhar("o perfil", error.code);
   return data;
 }
+
+// Chaves da API que a própria pessoa criou neste projeto (o RLS só devolve as dela, e sem o hash).
+export type ChaveApi = {
+  id: string;
+  nome: string;
+  prefixo: string;
+  criadoEm: string;
+  expiraEm: string | null;
+  revogadaEm: string | null;
+  ultimoUsoEm: string | null;
+};
+
+export async function carregarMinhasChaves(projetoId: string): Promise<ChaveApi[]> {
+  const supabase = await criarClienteServidor();
+  const { data, error } = await supabase
+    .from("api_chaves")
+    .select("id, nome, prefixo, criado_em, expira_em, revogada_em, ultimo_uso_em")
+    .eq("projeto_id", projetoId)
+    .order("criado_em", { ascending: false })
+    .limit(20);
+  // Antes de rodar a migração a tabela não existe: a seção só aparece vazia.
+  if (error) {
+    if (error.code !== "42P01" && error.code !== "PGRST205") console.error("Falha ao carregar chaves", { code: error.code });
+    return [];
+  }
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    prefixo: c.prefixo,
+    criadoEm: c.criado_em,
+    expiraEm: c.expira_em,
+    revogadaEm: c.revogada_em,
+    ultimoUsoEm: c.ultimo_uso_em,
+  }));
+}

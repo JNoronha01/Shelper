@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
 import {
   carregarBoard,
+  carregarMinhasChaves,
   carregarConvite,
   carregarEventosParaCalculo,
   carregarHistorico,
@@ -76,6 +77,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
   const pontosConcluidos = concluidos.reduce((s, c) => s + c.pontos, 0);
   // Horas do contrato: as estimadas dos cartões concluídos contam como usadas.
   const horas = horasDoContrato(cartoes);
+  const chaves = aba === "projeto" ? await carregarMinhasChaves(projeto.id) : [];
 
   return (
     <>
@@ -199,7 +201,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
             />
           )}
           {aba === "time" && <AbaTime projetoId={projeto.id} funcao={funcao} meuId={usuario.id} agora={agora} />}
-          {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} />}
+          {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} chaves={chaves} />}
         </ConteudoAba>
       </ProvedorAbas>
     </>
