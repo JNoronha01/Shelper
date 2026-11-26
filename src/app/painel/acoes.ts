@@ -23,6 +23,7 @@ import {
 } from "@/lib/board/regras";
 import { COLUNAS } from "@/lib/colunas";
 import { validarCartoesImportados } from "@/lib/importacao/trello";
+import { explicarErroDoBanco } from "@/lib/erros";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import type { Funcao } from "@/lib/board/papeis";
 import type { EstadoAcao, ResultadoMover, ResultadoSimples } from "./estado";
@@ -31,14 +32,12 @@ import type { EstadoAcao, ResultadoMover, ResultadoSimples } from "./estado";
 // função do banco que confere se o usuário é membro antes de gravar.
 
 const SEM_ACESSO = "Você não tem acesso a este projeto.";
-const FALHA = "Não foi possível concluir agora. Tente novamente em instantes.";
 
+// Sempre devolve o motivo do erro e o que fazer (ver src/lib/erros.ts).
 function mensagemDoBanco(erro: PostgrestError): string {
-  // 22023 e 42501 são lançados pelas nossas funções com texto pronto para a tela.
-  if (erro.code === "22023" || erro.code === "42501") return erro.message;
   if (erro.code === "28000") redirect(ROTA_ENTRADA);
-  console.error("Falha no banco", { code: erro.code });
-  return FALHA;
+  console.error("Falha no banco", { code: erro.code, message: erro.message });
+  return explicarErroDoBanco(erro);
 }
 
 async function clienteComSessao() {

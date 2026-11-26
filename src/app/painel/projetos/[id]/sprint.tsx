@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO, CAIXA } from "@/components/botoes";
 import type { Cartao, Sprint } from "@/lib/board/dados";
@@ -77,75 +77,83 @@ function CampoMeta({ valor, erro }: { valor: string; erro?: string }) {
   );
 }
 
-function Opcao({ c }: { c: Cartao }) {
-  return (
-    <li>
-      <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition hover:bg-elevado">
-        <input type="checkbox" name="cartoes" value={c.id} className={CAIXA} />
-        <span className="min-w-0 flex-1 truncate">{c.titulo}</span>
-        <span className="shrink-0 tabular-nums text-xs text-suave">{c.pontos} pts</span>
-      </label>
-    </li>
-  );
-}
-
 // A Sprint nasce do Backlog (regra do Scrum): só cartões do Backlog entram, e vão para A fazer.
+// As caixas são controladas: se a criação der erro, as marcações ficam. O React limpa o
+// formulário depois de cada envio (form reset), então, quando isso acontece, as caixas são
+// recriadas (versao) a partir do estado.
 function ListaCartoes({ backlog }: { backlog: Cartao[] }) {
+  const [marcados, setMarcados] = useState<ReadonlySet<string>>(new Set());
+  const [versao, setVersao] = useState(0);
+  const lista = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const form = lista.current?.closest("form");
+    if (!form) return;
+    const aoLimpar = () => setTimeout(() => setVersao((v) => v + 1));
+    form.addEventListener("reset", aoLimpar);
+    return () => form.removeEventListener("reset", aoLimpar);
+  }, []);
+  const quantos = backlog.filter((c) => marcados.has(c.id)).length;
+  const todas = backlog.length > 0 && quantos === backlog.length;
+  const alternar = (id: string) =>
+    setMarcados((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+
   return (
-    <div className="flex basis-full flex-col gap-1">
+    <div ref={lista} className="flex basis-full flex-col gap-1">
       {backlog.length === 0 ? (
         <p className="text-sm text-suave">
           O Backlog está vazio. Crie os cartões no Backlog (botão Novo cartão, no Board) e volte aqui para puxá-los.
         </p>
       ) : (
-        <Grupo titulo="Cartões do Backlog que entram na Sprint">
-          {backlog.map((c) => (
-            <Opcao key={c.id} c={c} />
-          ))}
-        </Grupo>
+        <fieldset>
+          <legend className="mb-1 flex w-full items-center justify-between gap-3 text-sm font-medium">
+            <span>
+              Cartões do Backlog que entram na Sprint
+              {quantos > 0 && (
+                <span className="ml-2 font-normal text-suave tabular-nums">
+                  {quantos} {quantos === 1 ? "marcado" : "marcados"}
+                </span>
+              )}
+            </span>
+            {backlog.length > 1 && (
+              <button
+                type="button"
+                aria-pressed={todas}
+                onClick={() => setMarcados(todas ? new Set() : new Set(backlog.map((c) => c.id)))}
+                className={BOTAO_MINI}
+              >
+                {todas ? "Desmarcar todos" : "Marcar todos"}
+              </button>
+            )}
+          </legend>
+          <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-linha p-2">
+            {backlog.map((c) => (
+              <li key={`${c.id}-${versao}`}>
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition hover:bg-elevado">
+                  <input
+                    type="checkbox"
+                    name="cartoes"
+                    value={c.id}
+                    checked={marcados.has(c.id)}
+                    onChange={() => alternar(c.id)}
+                    className={CAIXA}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{c.titulo}</span>
+                  <span className="shrink-0 tabular-nums text-xs text-suave">{c.pontos} pts</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </fieldset>
       )}
       <p className="text-xs text-suave">
         Os cartões marcados vão para A fazer. Cartões que já estão em outras colunas não entram: a Sprint é montada só a partir do Backlog.
       </p>
     </div>
-  );
-}
-
-// Grupo de caixas com um botão só que alterna entre "Marcar todos" e "Desmarcar todos".
-// As caixas não são controladas (o formulário lê do DOM); o grupo só conta quantas estão marcadas.
-function Grupo({ titulo, children }: { titulo: string; children: ReactNode[] }) {
-  const ref = useRef<HTMLFieldSetElement>(null);
-  const [marcadas, setMarcadas] = useState(0);
-  const caixas = () => [...(ref.current?.querySelectorAll<HTMLInputElement>('input[name="cartoes"]') ?? [])];
-  const contar = () => setMarcadas(caixas().filter((i) => i.checked).length);
-  const todas = marcadas === children.length;
-  return (
-    <fieldset ref={ref} onChange={contar}>
-      <legend className="mb-1 flex w-full items-center justify-between gap-3 text-sm font-medium">
-        <span>
-          {titulo}
-          {marcadas > 0 && (
-            <span className="ml-2 font-normal text-suave tabular-nums">
-              {marcadas} {marcadas === 1 ? "marcado" : "marcados"}
-            </span>
-          )}
-        </span>
-        {children.length > 1 && (
-          <button
-            type="button"
-            aria-pressed={todas}
-            onClick={() => {
-              for (const i of caixas()) i.checked = !todas;
-              contar();
-            }}
-            className={BOTAO_MINI}
-          >
-            {todas ? "Desmarcar todos" : "Marcar todos"}
-          </button>
-        )}
-      </legend>
-      <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-linha p-2">{children}</ul>
-    </fieldset>
   );
 }
 

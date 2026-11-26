@@ -1,5 +1,6 @@
 "use server";
 
+import { explicarErroDeAuth } from "@/lib/erros";
 import type { AuthError } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -27,14 +28,11 @@ function mensagemDeErro(erro: AuthError): string {
       return "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.";
     default:
       console.error("Falha no Supabase Auth", { code: erro.code, status: erro.status });
-      return "Não foi possível concluir agora. Tente novamente em instantes.";
+      return explicarErroDeAuth(erro);
   }
 }
 
-export async function cadastrar(
-  _anterior: EstadoFormulario,
-  form: FormData,
-): Promise<EstadoFormulario> {
+export async function cadastrar(_anterior: EstadoFormulario, form: FormData): Promise<EstadoFormulario> {
   const validacao = validarCadastro(form);
   const valores = {
     nome: String(form.get("nome") ?? ""),
@@ -75,10 +73,7 @@ function minutos(segundos: number): string {
   return `${m} ${m === 1 ? "minuto" : "minutos"}`;
 }
 
-export async function entrar(
-  _anterior: EstadoFormulario,
-  form: FormData,
-): Promise<EstadoFormulario> {
+export async function entrar(_anterior: EstadoFormulario, form: FormData): Promise<EstadoFormulario> {
   const validacao = validarLogin(form);
   const valores = { email: String(form.get("email") ?? "") };
   if (!validacao.ok) return { erros: validacao.erros, valores };
@@ -89,7 +84,10 @@ export async function entrar(
   // (função login_falhou); a senha nem é conferida enquanto o e-mail está bloqueado.
   const bloqueio = await supabase.rpc("login_bloqueado", { p_email: email });
   if (typeof bloqueio.data === "number" && bloqueio.data > 0) {
-    return { mensagem: `Muitas tentativas erradas. Por segurança, este e-mail está bloqueado por mais ${minutos(bloqueio.data)}.`, valores };
+    return {
+      mensagem: `Muitas tentativas erradas. Por segurança, este e-mail está bloqueado por mais ${minutos(bloqueio.data)}.`,
+      valores,
+    };
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
@@ -100,7 +98,10 @@ export async function entrar(
     if (r && r.segundos > 0) {
       return { mensagem: `Muitas tentativas erradas. Por segurança, este e-mail ficou bloqueado por ${minutos(r.segundos)}.`, valores };
     }
-    const aviso = r && r.restantes <= 2 ? ` Mais ${r.restantes} ${r.restantes === 1 ? "tentativa" : "tentativas"} antes de bloquear por 15 minutos.` : "";
+    const aviso =
+      r && r.restantes <= 2
+        ? ` Mais ${r.restantes} ${r.restantes === 1 ? "tentativa" : "tentativas"} antes de bloquear por 15 minutos.`
+        : "";
     return { mensagem: `E-mail ou senha incorretos.${aviso}`, valores };
   }
   await supabase.rpc("login_ok");
