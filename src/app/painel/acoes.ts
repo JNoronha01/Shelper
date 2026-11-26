@@ -52,8 +52,7 @@ async function clienteComSessao() {
 
 const CAMPOS_CADASTRO = ["nome", "cliente", "objetivo", "horas", "inicio", "entrega", "duracao", "lead", "cycle", "velocity"] as const;
 
-const valoresDoForm = (form: FormData, campos: readonly string[]) =>
-  Object.fromEntries(campos.map((c) => [c, String(form.get(c) ?? "")]));
+const valoresDoForm = (form: FormData, campos: readonly string[]) => Object.fromEntries(campos.map((c) => [c, String(form.get(c) ?? "")]));
 
 const argumentosDoCadastro = (d: CadastroProjeto) => ({
   p_nome: d.nome,
@@ -175,7 +174,11 @@ export async function criarCartao(_anterior: EstadoAcao, form: FormData): Promis
 
 export async function editarCartao(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
   const cartao = form.get("cartao");
-  const valores = { titulo: String(form.get("titulo") ?? ""), pontos: String(form.get("pontos") ?? ""), horas: String(form.get("horas") ?? "") };
+  const valores = {
+    titulo: String(form.get("titulo") ?? ""),
+    pontos: String(form.get("pontos") ?? ""),
+    horas: String(form.get("horas") ?? ""),
+  };
   if (!eUuid(cartao)) return { mensagem: SEM_ACESSO };
   const validacao = validarCartao(form.get("titulo"), form.get("pontos"));
   const h = validarHoras(form.get("horas"));
@@ -194,11 +197,7 @@ export async function editarCartao(_anterior: EstadoAcao, form: FormData): Promi
   return { sucesso: "Cartão atualizado.", versao: Date.now() };
 }
 
-export async function moverCartao(entrada: {
-  cartao: string;
-  para: string;
-  confirmarWip: boolean;
-}): Promise<ResultadoMover> {
+export async function moverCartao(entrada: { cartao: string; para: string; confirmarWip: boolean }): Promise<ResultadoMover> {
   if (!eUuid(entrada.cartao)) return { status: "erro", mensagem: SEM_ACESSO };
   if (!(COLUNAS as readonly string[]).includes(entrada.para)) {
     return { status: "erro", mensagem: "Coluna de destino inválida." };
@@ -234,7 +233,9 @@ export async function criarSprint(_anterior: EstadoAcao, form: FormData): Promis
   if (!v.ok) return { erros: v.erros, valores };
 
   const supabase = await clienteComSessao();
-  const { error } = await supabase.rpc("criar_sprint", {
+  // criar_sprint_flex: cartões do Backlog vão para A fazer; os de outras colunas (só com o
+  // interruptor da aba Projeto ligado) entram na Sprint sem mudar de coluna.
+  const { error } = await supabase.rpc("criar_sprint_flex", {
     p_projeto: projeto,
     p_inicio: v.dados.inicio,
     p_fim: v.dados.fim,
@@ -271,14 +272,31 @@ export async function puxarCartoes(_anterior: EstadoAcao, form: FormData): Promi
   const sprint = form.get("sprint");
   if (!eUuid(sprint)) return { mensagem: SEM_ACESSO };
   const ids = idsDe(form);
-  if (ids.length === 0) return { mensagem: "Marque ao menos um cartão do Backlog." };
+  if (ids.length === 0) return { mensagem: "Marque ao menos um cartão." };
 
   const supabase = await clienteComSessao();
-  const { data, error } = await supabase.rpc("puxar_cartoes_para_sprint", { p_sprint: sprint, p_cartoes: ids });
+  const { data, error } = await supabase.rpc("puxar_cartoes_flex", { p_sprint: sprint, p_cartoes: ids });
+  if (error) return { mensagem: mensagemDoBanco(error) };
+
+  const { backlog = 0, fora = 0 } = (data ?? {}) as { backlog?: number; fora?: number };
+  const partes = [
+    backlog > 0 && `${backlog} ${backlog === 1 ? "cartão foi" : "cartões foram"} para A fazer`,
+    fora > 0 && `${fora} ${fora === 1 ? "cartão entrou" : "cartões entraram"} na Sprint sem mudar de coluna`,
+  ].filter(Boolean);
+  refresh();
+  return { sucesso: partes.length ? `${partes.join(" e ")}.` : "Nenhum cartão mudou.", versao: Date.now() };
+}
+
+export async function definirSprintForaBacklog(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
+  const projeto = form.get("projeto");
+  if (!eUuid(projeto)) return { mensagem: SEM_ACESSO };
+  const ligado = form.get("ligado") === "sim";
+  const supabase = await clienteComSessao();
+  const { error } = await supabase.rpc("definir_sprint_fora_backlog", { p_projeto: projeto, p_ligado: ligado });
   if (error) return { mensagem: mensagemDoBanco(error) };
 
   refresh();
-  return { sucesso: `${data} ${data === 1 ? "cartão foi" : "cartões foram"} para A fazer.`, versao: Date.now() };
+  return { sucesso: ligado ? "Ligado: o Planejar Sprint mostra também os cartões fora do Backlog." : "Desligado.", versao: Date.now() };
 }
 
 export async function encerrarSprint(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {

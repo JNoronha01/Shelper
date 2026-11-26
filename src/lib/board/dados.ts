@@ -57,7 +57,16 @@ export type Membro = { usuarioId: string; nome: string; email: string; funcao: F
 
 export type Convite = { codigo: string; expiraEm: string };
 
-export type Sprint = { id: string; numero: number; inicio: string; fim: string; meta: string | null; encerrada: boolean };
+// foraDoBacklog: a Sprint recebeu cartões que já estavam em outras colunas (ver aba Projeto).
+export type Sprint = {
+  id: string;
+  numero: number;
+  inicio: string;
+  fim: string;
+  meta: string | null;
+  encerrada: boolean;
+  foraDoBacklog: boolean;
+};
 
 // Metas das métricas, digitadas pelo time. Qualquer uma pode ficar em branco (null).
 export type Metas = { leadDias: number | null; cycleHoras: number | null; velocity: number | null };
@@ -88,6 +97,8 @@ export type DadosBoard = {
     dataEntrega: string | null;
     duracaoSprint: number | null;
     cadastroCompleto: boolean;
+    // Interruptor da aba Projeto: o Planejar Sprint aceita cartões fora do Backlog.
+    sprintForaBacklog: boolean;
   };
   metas: Metas;
   sprints: Sprint[];
@@ -150,7 +161,9 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
   const [projeto, membros, cartoes, eventos, sprints, votacoes, inicios] = await Promise.all([
     supabase
       .from("projetos")
-      .select("id, nome, wip_andamento, wip_revisao, meta_lead_dias, meta_cycle_horas, meta_velocity, cliente, objetivo, horas_contratadas, data_inicio, data_entrega, duracao_sprint")
+      .select(
+        "id, nome, wip_andamento, wip_revisao, meta_lead_dias, meta_cycle_horas, meta_velocity, cliente, objetivo, horas_contratadas, data_inicio, data_entrega, duracao_sprint, sprint_fora_backlog",
+      )
       .eq("id", projetoId)
       .maybeSingle(),
     supabase.rpc("listar_time", { p_projeto: projetoId }),
@@ -169,7 +182,7 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       .limit(50),
     supabase
       .from("sprints")
-      .select("id, numero, inicio, fim, meta, encerrada")
+      .select("id, numero, inicio, fim, meta, encerrada, fora_do_backlog")
       .eq("projeto_id", projetoId)
       .order("numero", { ascending: true }),
     supabase
@@ -196,7 +209,14 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
   // Sem linha = projeto inexistente ou de outro time (o RLS esconde).
   if (!projeto.data) return null;
 
-  const listaMembros = (membros.data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string; foto: string | null }[];
+  const listaMembros = (membros.data ?? []) as {
+    usuario_id: string;
+    nome: string;
+    email: string;
+    funcao: Funcao;
+    entrou_em: string;
+    foto: string | null;
+  }[];
   const inicioPorCartao = new Map<string, string>();
   for (const e of (inicios.data ?? []) as { cartao_id: string; em: string }[]) {
     const atual = inicioPorCartao.get(e.cartao_id);
@@ -237,9 +257,18 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       wipRevisao: projeto.data.wip_revisao,
       ...cadastro,
       cadastroCompleto: cadastroCompleto({ ...cadastro, metas }),
+      sprintForaBacklog: projeto.data.sprint_fora_backlog === true,
     },
     metas,
-    sprints: (sprints.data ?? []) as Sprint[],
+    sprints: (sprints.data ?? []).map((s) => ({
+      id: s.id,
+      numero: s.numero,
+      inicio: s.inicio,
+      fim: s.fim,
+      meta: s.meta,
+      encerrada: s.encerrada,
+      foraDoBacklog: s.fora_do_backlog === true,
+    })),
     votacoes: (votacoes.data ?? []).map((v) => ({
       id: v.id,
       tipo: v.tipo,
@@ -251,7 +280,14 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
     })),
     funcao: eu.funcao,
     membros: listaMembros.length,
-    time: listaMembros.map((m) => ({ usuarioId: m.usuario_id, nome: m.nome, email: m.email, funcao: m.funcao, entrouEm: m.entrou_em, foto: m.foto })),
+    time: listaMembros.map((m) => ({
+      usuarioId: m.usuario_id,
+      nome: m.nome,
+      email: m.email,
+      funcao: m.funcao,
+      entrouEm: m.entrou_em,
+      foto: m.foto,
+    })),
     cartoes: (cartoes.data ?? [])
       .filter((c) => eColuna(c.coluna_atual))
       .map((c) => ({
@@ -321,7 +357,9 @@ export async function carregarMembros(projetoId: string): Promise<Membro[]> {
   const supabase = await criarClienteServidor();
   const { data, error } = await supabase.rpc("listar_time", { p_projeto: projetoId });
   if (error) falhar("os membros", error.code);
-  return ((data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string; foto: string | null }[]).map((m) => ({
+  return (
+    (data ?? []) as { usuario_id: string; nome: string; email: string; funcao: Funcao; entrou_em: string; foto: string | null }[]
+  ).map((m) => ({
     usuarioId: m.usuario_id,
     nome: m.nome,
     email: m.email,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, type ReactNode } from "react";
+import { useActionState, useState, type ReactNode } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO, CAIXA } from "@/components/botoes";
 import type { Cartao, Sprint } from "@/lib/board/dados";
@@ -19,7 +19,19 @@ function Mensagens({ estado }: { estado: EstadoAcao }) {
   );
 }
 
-function CampoData({ nome, rotulo, valor, erro }: { nome: string; rotulo: string; valor: string; erro?: string }) {
+function CampoData({
+  nome,
+  rotulo,
+  valor,
+  erro,
+  aoMudar,
+}: {
+  nome: string;
+  rotulo: string;
+  valor: string;
+  erro?: string;
+  aoMudar?: (v: string) => void;
+}) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={`sprint-${nome}`} className="text-sm font-medium">
@@ -31,6 +43,7 @@ function CampoData({ nome, rotulo, valor, erro }: { nome: string; rotulo: string
         type="date"
         required
         defaultValue={valor}
+        onChange={aoMudar ? (e) => aoMudar(e.target.value) : undefined}
         aria-invalid={erro ? true : undefined}
         aria-describedby={erro ? `sprint-${nome}-erro` : undefined}
         className={CAMPO}
@@ -64,25 +77,77 @@ function CampoMeta({ valor, erro }: { valor: string; erro?: string }) {
   );
 }
 
-function ListaBacklog({ cartoes }: { cartoes: Cartao[] }) {
-  if (cartoes.length === 0) {
-    return <p className="basis-full text-sm text-suave">Não há cartões no Backlog para puxar.</p>;
-  }
+// Cartão sem Sprint que está fora do Backlog, com o dia (Brasília) em que chegou em Concluído.
+export type CandidatoFora = { cartao: Cartao; concluidoDia: string | null };
+
+function Opcao({ c, detalhe }: { c: Cartao; detalhe?: string }) {
   return (
-    <fieldset className="basis-full">
-      <legend className="mb-1 text-sm font-medium">Cartões do Backlog que entram na Sprint</legend>
-      <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-linha p-2">
-        {cartoes.map((c) => (
-          <li key={c.id}>
-            <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition hover:bg-elevado">
-              <input type="checkbox" name="cartoes" value={c.id} className={CAIXA} />
-              <span className="min-w-0 flex-1 truncate">{c.titulo}</span>
-              <span className="tabular-nums text-xs text-suave">{c.pontos} pts</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-    </fieldset>
+    <li>
+      <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition hover:bg-elevado">
+        <input type="checkbox" name="cartoes" value={c.id} className={CAIXA} />
+        <span className="min-w-0 flex-1 truncate">{c.titulo}</span>
+        {detalhe && <span className="shrink-0 text-xs text-suave">{detalhe}</span>}
+        <span className="shrink-0 tabular-nums text-xs text-suave">{c.pontos} pts</span>
+      </label>
+    </li>
+  );
+}
+
+// Lista de cartões para a Sprint. "fora" só vem preenchido com o interruptor da aba Projeto ligado.
+// Cartão concluído antes do início da Sprint não aparece (o banco também recusa).
+function ListaCartoes({ backlog, fora, inicio }: { backlog: Cartao[]; fora: CandidatoFora[] | null; inicio: string }) {
+  const validos = (fora ?? []).filter((f) => f.cartao.coluna !== "Concluído" || !f.concluidoDia || !inicio || f.concluidoDia >= inicio);
+  const escondidos = (fora?.length ?? 0) - validos.length;
+  return (
+    <div className="flex basis-full flex-col gap-3">
+      {backlog.length === 0 ? (
+        <p className="text-sm text-suave">Não há cartões no Backlog para puxar.</p>
+      ) : (
+        <fieldset>
+          <legend className="mb-1 text-sm font-medium">Cartões do Backlog (vão para A fazer)</legend>
+          <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-linha p-2">
+            {backlog.map((c) => (
+              <Opcao key={c.id} c={c} />
+            ))}
+          </ul>
+        </fieldset>
+      )}
+      {fora && (
+        <fieldset>
+          <legend className="mb-1 flex w-full items-center justify-between gap-3 text-sm font-medium">
+            Cartões sem Sprint de outras colunas (ficam onde estão)
+            {validos.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) =>
+                  e.currentTarget
+                    .closest("fieldset")
+                    ?.querySelectorAll<HTMLInputElement>('input[name="cartoes"]')
+                    .forEach((i) => (i.checked = true))
+                }
+                className={BOTAO_MINI}
+              >
+                Marcar todos
+              </button>
+            )}
+          </legend>
+          {validos.length === 0 ? (
+            <p className="text-sm text-suave">Nenhum cartão sem Sprint fora do Backlog.</p>
+          ) : (
+            <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-aviso/40 p-2">
+              {validos.map((f) => (
+                <Opcao key={f.cartao.id} c={f.cartao} detalhe={f.cartao.coluna} />
+              ))}
+            </ul>
+          )}
+          <p className="mt-1 text-xs text-suave">
+            Liberado na aba Projeto. A Sprint fica marcada como planejada fora do Backlog nas métricas e no relatório.
+            {escondidos > 0 &&
+              ` ${escondidos} ${escondidos === 1 ? "cartão concluído antes do início não aparece" : "cartões concluídos antes do início não aparecem"}.`}
+          </p>
+        </fieldset>
+      )}
+    </div>
   );
 }
 
@@ -96,26 +161,29 @@ function somarDias(data: string, n: number) {
 export function NovaSprint({
   projetoId,
   backlog,
+  fora,
   hoje,
   numero,
   duracao,
 }: {
   projetoId: string;
   backlog: Cartao[];
+  fora: CandidatoFora[] | null;
   hoje: string;
   numero: number;
   duracao: number;
 }) {
   const [estado, acao, enviando] = useActionState(criarSprint, ESTADO_INICIAL);
+  const [inicio, setInicio] = useState(estado.valores?.inicio ?? hoje);
   return (
     <form action={acao} noValidate className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
       <input type="hidden" name="projeto" value={projetoId} />
       <h2 className="basis-full font-semibold">Nova Sprint {numero}</h2>
-      <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? hoje} erro={estado.erros?.inicio} />
+      <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? hoje} erro={estado.erros?.inicio} aoMudar={setInicio} />
       <CampoData nome="fim" rotulo="Fim" valor={estado.valores?.fim ?? somarDias(hoje, duracao - 1)} erro={estado.erros?.fim} />
       <CampoMeta valor={estado.valores?.meta ?? ""} erro={estado.erros?.meta} />
       <p className="basis-full text-xs text-suave">O fim já vem com a duração de Sprint do cadastro ({duracao} dias); pode mudar.</p>
-      <ListaBacklog cartoes={backlog} />
+      <ListaCartoes backlog={backlog} fora={fora} inicio={inicio} />
       <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
         {enviando ? "Criando…" : "Criar Sprint"}
       </button>
@@ -129,12 +197,14 @@ export function SprintAtiva({
   sprint,
   cartoes,
   backlog,
+  fora,
   podeGerir,
 }: {
   projetoId: string;
   sprint: Sprint;
   cartoes: Cartao[];
   backlog: Cartao[];
+  fora: CandidatoFora[] | null;
   // PO e SM editam, montam e encerram; o desenvolvedor só vê.
   podeGerir: boolean;
 }) {
@@ -159,6 +229,7 @@ export function SprintAtiva({
           <strong>{comprometidos}</strong> pontos comprometidos em {daSprint.length} {daSprint.length === 1 ? "cartão" : "cartões"} ·{" "}
           <strong>{feitos}</strong> concluídos
         </p>
+        {sprint.foraDoBacklog && <MarcaForaBacklog />}
       </section>
 
       {podeGerir && (
@@ -177,11 +248,11 @@ export function SprintAtiva({
 
           <form action={puxar} className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
             <input type="hidden" name="sprint" value={sprint.id} />
-            <h3 className="basis-full text-sm font-semibold">Adicionar cartões do Backlog</h3>
-            <ListaBacklog cartoes={backlog} />
-            {backlog.length > 0 && (
+            <h3 className="basis-full text-sm font-semibold">Adicionar cartões à Sprint</h3>
+            <ListaCartoes backlog={backlog} fora={fora} inicio={sprint.inicio} />
+            {(backlog.length > 0 || (fora?.length ?? 0) > 0) && (
               <button aria-busy={puxando} type="submit" disabled={puxando} className={BOTAO_SECUNDARIO}>
-                {puxando ? "Movendo…" : "Mover para A fazer"}
+                {puxando ? "Adicionando…" : "Adicionar à Sprint"}
               </button>
             )}
             <Mensagens estado={puxe} />
@@ -216,6 +287,11 @@ export function SprintsEncerradas({ projetoId, sprints, cartoes }: { projetoId: 
                 {formatarData(s.inicio)} a {formatarData(s.fim)}
               </span>
               <span className="min-w-0 flex-1 truncate">{s.meta ?? ""}</span>
+              {s.foraDoBacklog && (
+                <span title="Planejada com cartões de fora do Backlog" className="text-xs text-aviso">
+                  fora do Backlog
+                </span>
+              )}
               <span className="tabular-nums text-suave">{dela.length} cartões</span>
               <LinkRelatorio projetoId={projetoId} sprintId={s.id} />
             </li>
@@ -268,5 +344,14 @@ function LinkRelatorio({ projetoId, sprintId }: { projetoId: string; sprintId: s
     <a href={`/painel/projetos/${projetoId}/sprints/${sprintId}/relatorio`} target="_blank" className={BOTAO_MINI}>
       Relatório em PDF<span className="sr-only"> (abre em outra aba)</span>
     </a>
+  );
+}
+
+function MarcaForaBacklog() {
+  return (
+    <p className="mt-2 text-xs text-aviso">
+      Planejada com cartões de fora do Backlog: alguns já estavam em andamento ou concluídos quando ela começou. Burndown e Velocity contam
+      esses cartões.
+    </p>
   );
 }
