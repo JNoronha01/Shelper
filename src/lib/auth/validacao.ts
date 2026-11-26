@@ -7,6 +7,23 @@ export const NOME_MAXIMO = 120;
 const EMAIL_MAXIMO = 254;
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Senha forte: as mesmas quatro regras no cadastro, na troca de senha e na redefinição.
+// A tela mostra cada regra ficando verde enquanto a pessoa digita (componente RegrasDaSenha).
+export const REGRAS_SENHA = [
+  { id: "tamanho", texto: `Pelo menos ${SENHA_MINIMO} caracteres`, ok: (s: string) => s.length >= SENHA_MINIMO },
+  { id: "maiuscula", texto: "Uma letra maiúscula", ok: (s: string) => /\p{Lu}/u.test(s) },
+  { id: "numero", texto: "Um número", ok: (s: string) => /\d/.test(s) },
+  { id: "especial", texto: "Um caractere especial (!@#$%&*…)", ok: (s: string) => /[^\p{L}\p{N}\s]/u.test(s) },
+] as const;
+
+// Primeiro problema da senha, ou undefined se ela passa em todas as regras.
+export function problemaDaSenha(senha: string): string | undefined {
+  if (new TextEncoder().encode(senha).length > SENHA_MAXIMO) return `A senha pode ter no máximo ${SENHA_MAXIMO} caracteres.`;
+  const faltam = REGRAS_SENHA.filter((r) => !r.ok(senha)).map((r) => r.texto.toLowerCase());
+  if (faltam.length === 0) return undefined;
+  return `A senha precisa de: ${faltam.join(", ")}.`;
+}
+
 export type DadosCadastro = { nome: string; email: string; senha: string };
 export type DadosLogin = { email: string; senha: string };
 
@@ -50,10 +67,9 @@ export function validarCadastro(form: FormData): Validacao<DadosCadastro, CampoC
   if (problemaEmail) erros.email = problemaEmail;
 
   if (!senha) erros.senha = "Crie uma senha.";
-  else if (senha.length < SENHA_MINIMO) {
-    erros.senha = `A senha precisa ter pelo menos ${SENHA_MINIMO} caracteres.`;
-  } else if (new TextEncoder().encode(senha).length > SENHA_MAXIMO) {
-    erros.senha = `A senha pode ter no máximo ${SENHA_MAXIMO} caracteres.`;
+  else {
+    const problema = problemaDaSenha(senha);
+    if (problema) erros.senha = problema;
   }
 
   if (!confirmacao) erros.confirmacao = "Repita a senha.";
@@ -92,8 +108,7 @@ export function validarTrocaDeSenha(form: FormData): Validacao<{ atual: string; 
   const erros: ErrosCampos<"atual" | "nova" | "confirmacao"> = {};
   if (!atual) erros.atual = "Informe a senha atual.";
   if (!nova) erros.nova = "Crie a nova senha.";
-  else if (nova.length < SENHA_MINIMO) erros.nova = `A senha precisa ter pelo menos ${SENHA_MINIMO} caracteres.`;
-  else if (new TextEncoder().encode(nova).length > SENHA_MAXIMO) erros.nova = `A senha pode ter no máximo ${SENHA_MAXIMO} caracteres.`;
+  else if (problemaDaSenha(nova)) erros.nova = problemaDaSenha(nova);
   else if (nova === atual) erros.nova = "A nova senha precisa ser diferente da atual.";
   if (!confirmacao) erros.confirmacao = "Repita a nova senha.";
   else if (confirmacao !== nova) erros.confirmacao = "As senhas não coincidem.";
@@ -111,6 +126,27 @@ export function validarTrocaDeEmail(form: FormData, emailAtual: string): Validac
   if (!senha) erros.senha = "Confirme com a sua senha.";
   if (Object.keys(erros).length > 0) return { ok: false, erros };
   return { ok: true, dados: { email, senha } };
+}
+
+// Redefinir a senha pelo link do e-mail ("esqueci minha senha").
+export function validarNovaSenha(form: FormData): Validacao<{ senha: string }, "senha" | "confirmacao"> {
+  const senha = texto(form, "senha");
+  const confirmacao = texto(form, "confirmacao");
+  const erros: ErrosCampos<"senha" | "confirmacao"> = {};
+  if (!senha) erros.senha = "Crie a nova senha.";
+  else if (problemaDaSenha(senha)) erros.senha = problemaDaSenha(senha);
+  if (!confirmacao) erros.confirmacao = "Repita a nova senha.";
+  else if (confirmacao !== senha) erros.confirmacao = "As senhas não coincidem.";
+  if (Object.keys(erros).length > 0) return { ok: false, erros };
+  return { ok: true, dados: { senha } };
+}
+
+// Pedido do link: só o e-mail.
+export function validarPedidoDeSenha(form: FormData): Validacao<{ email: string }, "email"> {
+  const email = normalizarEmail(texto(form, "email"));
+  const problema = erroEmail(email);
+  if (problema) return { ok: false, erros: { email: problema } };
+  return { ok: true, dados: { email } };
 }
 
 // Foto: só imagens pequenas (a tela já reduz para 256 px antes de enviar).

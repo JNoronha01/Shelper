@@ -7,9 +7,9 @@ type CampoProps = InputHTMLAttributes<HTMLInputElement> & {
   dica?: string;
 };
 
-export function Campo({ name, rotulo, erro, dica, ...input }: CampoProps) {
+export function Campo({ name, rotulo, erro, dica, "aria-describedby": extra, ...input }: CampoProps) {
   const id = `campo-${name}`;
-  const descricoes = [dica && `${id}-dica`, erro && `${id}-erro`].filter(Boolean).join(" ");
+  const descricoes = [dica && `${id}-dica`, erro && `${id}-erro`, extra].filter(Boolean).join(" ");
 
   return (
     <div className="flex flex-col gap-1.5">
