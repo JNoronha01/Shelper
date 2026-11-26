@@ -233,9 +233,8 @@ export async function criarSprint(_anterior: EstadoAcao, form: FormData): Promis
   if (!v.ok) return { erros: v.erros, valores };
 
   const supabase = await clienteComSessao();
-  // criar_sprint_flex: cartões do Backlog vão para A fazer; os de outras colunas (só com o
-  // interruptor da aba Projeto ligado) entram na Sprint sem mudar de coluna.
-  const { error } = await supabase.rpc("criar_sprint_flex", {
+  // A Sprint nasce do Backlog: criar_sprint só aceita cartões do Backlog e os leva para A fazer.
+  const { error } = await supabase.rpc("criar_sprint", {
     p_projeto: projeto,
     p_inicio: v.dados.inicio,
     p_fim: v.dados.fim,
@@ -272,31 +271,14 @@ export async function puxarCartoes(_anterior: EstadoAcao, form: FormData): Promi
   const sprint = form.get("sprint");
   if (!eUuid(sprint)) return { mensagem: SEM_ACESSO };
   const ids = idsDe(form);
-  if (ids.length === 0) return { mensagem: "Marque ao menos um cartão." };
+  if (ids.length === 0) return { mensagem: "Marque ao menos um cartão do Backlog." };
 
   const supabase = await clienteComSessao();
-  const { data, error } = await supabase.rpc("puxar_cartoes_flex", { p_sprint: sprint, p_cartoes: ids });
-  if (error) return { mensagem: mensagemDoBanco(error) };
-
-  const { backlog = 0, fora = 0 } = (data ?? {}) as { backlog?: number; fora?: number };
-  const partes = [
-    backlog > 0 && `${backlog} ${backlog === 1 ? "cartão foi" : "cartões foram"} para A fazer`,
-    fora > 0 && `${fora} ${fora === 1 ? "cartão entrou" : "cartões entraram"} na Sprint sem mudar de coluna`,
-  ].filter(Boolean);
-  refresh();
-  return { sucesso: partes.length ? `${partes.join(" e ")}.` : "Nenhum cartão mudou.", versao: Date.now() };
-}
-
-export async function definirSprintForaBacklog(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {
-  const projeto = form.get("projeto");
-  if (!eUuid(projeto)) return { mensagem: SEM_ACESSO };
-  const ligado = form.get("ligado") === "sim";
-  const supabase = await clienteComSessao();
-  const { error } = await supabase.rpc("definir_sprint_fora_backlog", { p_projeto: projeto, p_ligado: ligado });
+  const { data, error } = await supabase.rpc("puxar_cartoes_para_sprint", { p_sprint: sprint, p_cartoes: ids });
   if (error) return { mensagem: mensagemDoBanco(error) };
 
   refresh();
-  return { sucesso: ligado ? "Ligado: o Planejar Sprint mostra também os cartões fora do Backlog." : "Desligado.", versao: Date.now() };
+  return { sucesso: `${data} ${data === 1 ? "cartão foi" : "cartões foram"} para A fazer.`, versao: Date.now() };
 }
 
 export async function encerrarSprint(_anterior: EstadoAcao, form: FormData): Promise<EstadoAcao> {

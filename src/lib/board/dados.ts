@@ -97,8 +97,6 @@ export type DadosBoard = {
     dataEntrega: string | null;
     duracaoSprint: number | null;
     cadastroCompleto: boolean;
-    // Interruptor da aba Projeto: o Planejar Sprint aceita cartões fora do Backlog.
-    sprintForaBacklog: boolean;
   };
   metas: Metas;
   sprints: Sprint[];
@@ -257,7 +255,6 @@ export async function carregarBoard(projetoId: string, usuarioId: string): Promi
       wipRevisao: projeto.data.wip_revisao,
       ...cadastro,
       cadastroCompleto: cadastroCompleto({ ...cadastro, metas }),
-      sprintForaBacklog: projeto.data.sprint_fora_backlog === true,
     },
     metas,
     sprints: (sprints.data ?? []).map((s) => ({

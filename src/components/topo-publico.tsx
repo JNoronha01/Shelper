@@ -7,6 +7,7 @@ const ATALHOS = [
   ["Como funciona", "/#como-funciona"],
   ["Dashboard", "/#dashboard"],
   ["Perguntas", "/#perguntas"],
+  ["Guia", "/guia"],
   ["Contato", "/contato"],
 ] as const;
 

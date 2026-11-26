@@ -77,63 +77,43 @@ function CampoMeta({ valor, erro }: { valor: string; erro?: string }) {
   );
 }
 
-// Cartão sem Sprint que está fora do Backlog, com o dia (Brasília) em que chegou em Concluído.
-export type CandidatoFora = { cartao: Cartao; concluidoDia: string | null };
-
-function Opcao({ c, detalhe }: { c: Cartao; detalhe?: string }) {
+function Opcao({ c }: { c: Cartao }) {
   return (
     <li>
       <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition hover:bg-elevado">
         <input type="checkbox" name="cartoes" value={c.id} className={CAIXA} />
         <span className="min-w-0 flex-1 truncate">{c.titulo}</span>
-        {detalhe && <span className="shrink-0 text-xs text-suave">{detalhe}</span>}
         <span className="shrink-0 tabular-nums text-xs text-suave">{c.pontos} pts</span>
       </label>
     </li>
   );
 }
 
-// Lista de cartões para a Sprint. "fora" só vem preenchido com o interruptor da aba Projeto ligado.
-// Cartão concluído antes do início da Sprint não aparece (o banco também recusa).
-function ListaCartoes({ backlog, fora, inicio }: { backlog: Cartao[]; fora: CandidatoFora[] | null; inicio: string }) {
-  const validos = (fora ?? []).filter((f) => f.cartao.coluna !== "Concluído" || !f.concluidoDia || !inicio || f.concluidoDia >= inicio);
-  const escondidos = (fora?.length ?? 0) - validos.length;
+// A Sprint nasce do Backlog (regra do Scrum): só cartões do Backlog entram, e vão para A fazer.
+function ListaCartoes({ backlog }: { backlog: Cartao[] }) {
   return (
-    <div className="flex basis-full flex-col gap-3">
+    <div className="flex basis-full flex-col gap-1">
       {backlog.length === 0 ? (
-        <p className="text-sm text-suave">Não há cartões no Backlog para puxar.</p>
+        <p className="text-sm text-suave">
+          O Backlog está vazio. Crie os cartões no Backlog (botão Novo cartão, no Board) e volte aqui para puxá-los.
+        </p>
       ) : (
-        <Grupo titulo="Cartões do Backlog (vão para A fazer)">
+        <Grupo titulo="Cartões do Backlog que entram na Sprint">
           {backlog.map((c) => (
             <Opcao key={c.id} c={c} />
           ))}
         </Grupo>
       )}
-      {fora && (
-        <div>
-          {validos.length === 0 ? (
-            <p className="text-sm text-suave">Nenhum cartão sem Sprint fora do Backlog.</p>
-          ) : (
-            <Grupo titulo="Cartões sem Sprint de outras colunas (ficam onde estão)" destaque>
-              {validos.map((f) => (
-                <Opcao key={f.cartao.id} c={f.cartao} detalhe={f.cartao.coluna} />
-              ))}
-            </Grupo>
-          )}
-          <p className="mt-1 text-xs text-suave">
-            Liberado na aba Projeto. A Sprint fica marcada como planejada fora do Backlog nas métricas e no relatório.
-            {escondidos > 0 &&
-              ` ${escondidos} ${escondidos === 1 ? "cartão concluído antes do início não aparece" : "cartões concluídos antes do início não aparecem"}.`}
-          </p>
-        </div>
-      )}
+      <p className="text-xs text-suave">
+        Os cartões marcados vão para A fazer. Cartões que já estão em outras colunas não entram: a Sprint é montada só a partir do Backlog.
+      </p>
     </div>
   );
 }
 
 // Grupo de caixas com um botão só que alterna entre "Marcar todos" e "Desmarcar todos".
 // As caixas não são controladas (o formulário lê do DOM); o grupo só conta quantas estão marcadas.
-function Grupo({ titulo, destaque, children }: { titulo: string; destaque?: boolean; children: ReactNode[] }) {
+function Grupo({ titulo, children }: { titulo: string; children: ReactNode[] }) {
   const ref = useRef<HTMLFieldSetElement>(null);
   const [marcadas, setMarcadas] = useState(0);
   const caixas = () => [...(ref.current?.querySelectorAll<HTMLInputElement>('input[name="cartoes"]') ?? [])];
@@ -164,9 +144,7 @@ function Grupo({ titulo, destaque, children }: { titulo: string; destaque?: bool
           </button>
         )}
       </legend>
-      <ul className={`flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border p-2 ${destaque ? "border-aviso/40" : "border-linha"}`}>
-        {children}
-      </ul>
+      <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-linha p-2">{children}</ul>
     </fieldset>
   );
 }
@@ -181,20 +159,17 @@ function somarDias(data: string, n: number) {
 export function NovaSprint({
   projetoId,
   backlog,
-  fora,
   hoje,
   numero,
   duracao,
 }: {
   projetoId: string;
   backlog: Cartao[];
-  fora: CandidatoFora[] | null;
   hoje: string;
   numero: number;
   duracao: number;
 }) {
   const [estado, acao, enviando] = useActionState(criarSprint, ESTADO_INICIAL);
-  const [inicio, setInicio] = useState(estado.valores?.inicio ?? hoje);
   const [fim, setFim] = useState(estado.valores?.fim ?? somarDias(hoje, duracao - 1));
   // Fim antes de hoje: a Sprint já aconteceu. Criar por aqui deixaria uma Sprint "ativa" que já
   // acabou, então o botão fica bloqueado e a tela aponta para Registrar Sprint anterior.
@@ -205,10 +180,11 @@ export function NovaSprint({
       <div className="basis-full">
         <h2 className="font-semibold">Nova Sprint {numero}</h2>
         <p className="text-sm text-suave">
-          Só existe uma Sprint ativa por vez: ela vale até você encerrá-la, e só depois disso dá para criar a próxima.
+          A Sprint nasce do Backlog: escolha abaixo os cartões do Backlog que o time se compromete a entregar. Só existe uma Sprint ativa
+          por vez: ela vale até você encerrá-la, e só depois disso dá para criar a próxima.
         </p>
       </div>
-      <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? hoje} erro={estado.erros?.inicio} aoMudar={setInicio} />
+      <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? hoje} erro={estado.erros?.inicio} />
       <CampoData
         nome="fim"
         rotulo="Fim"
@@ -218,7 +194,7 @@ export function NovaSprint({
       />
       <CampoMeta valor={estado.valores?.meta ?? ""} erro={estado.erros?.meta} />
       <p className="basis-full text-xs text-suave">O fim já vem com a duração de Sprint do cadastro ({duracao} dias); pode mudar.</p>
-      <ListaCartoes backlog={backlog} fora={fora} inicio={inicio} />
+      <ListaCartoes backlog={backlog} />
       {jaPassou && (
         <p role="alert" className="basis-full rounded-xl border border-aviso/40 bg-aviso/10 px-4 py-2.5 text-sm">
           Essa Sprint já terminou (o fim é antes de hoje). Para registrar uma Sprint que já aconteceu, use{" "}
@@ -238,7 +214,6 @@ export function SprintAtiva({
   sprint,
   cartoes,
   backlog,
-  fora,
   hoje,
   podeGerir,
 }: {
@@ -246,7 +221,6 @@ export function SprintAtiva({
   sprint: Sprint;
   cartoes: Cartao[];
   backlog: Cartao[];
-  fora: CandidatoFora[] | null;
   hoje: string;
   // PO e SM editam, montam e encerram; o desenvolvedor só vê.
   podeGerir: boolean;
@@ -302,11 +276,11 @@ export function SprintAtiva({
 
           <form action={puxar} className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
             <input type="hidden" name="sprint" value={sprint.id} />
-            <h3 className="basis-full text-sm font-semibold">Adicionar cartões à Sprint</h3>
-            <ListaCartoes backlog={backlog} fora={fora} inicio={sprint.inicio} />
-            {(backlog.length > 0 || (fora?.length ?? 0) > 0) && (
+            <h3 className="basis-full text-sm font-semibold">Adicionar cartões do Backlog à Sprint</h3>
+            <ListaCartoes backlog={backlog} />
+            {backlog.length > 0 && (
               <button aria-busy={puxando} type="submit" disabled={puxando} className={BOTAO_SECUNDARIO}>
-                {puxando ? "Adicionando…" : "Adicionar à Sprint"}
+                {puxando ? "Movendo…" : "Mover para A fazer"}
               </button>
             )}
             <Mensagens estado={puxe} />
