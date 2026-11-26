@@ -2,9 +2,12 @@
 export const ROTA_ENTRADA = "/entrar";
 export const ROTA_CADASTRO = "/cadastro";
 export const ROTA_INTERNA = "/painel";
+export const ROTA_ESQUECI = "/esqueci-senha";
+// Redefinir a senha exige sessão (aberta pelo link do e-mail), por isso fica dentro do painel.
+export const ROTA_REDEFINIR = "/painel/nova-senha";
 
 const PREFIXOS_PROTEGIDOS = [ROTA_INTERNA];
-const ROTAS_DE_VISITANTE = [ROTA_ENTRADA, ROTA_CADASTRO];
+const ROTAS_DE_VISITANTE = [ROTA_ENTRADA, ROTA_CADASTRO, ROTA_ESQUECI];
 
 function correspondeA(caminho: string, prefixo: string): boolean {
   return caminho === prefixo || caminho.startsWith(`${prefixo}/`);

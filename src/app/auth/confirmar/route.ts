@@ -1,9 +1,9 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
-import { ROTA_ENTRADA, ROTA_INTERNA } from "@/lib/auth/rotas";
+import { ROTA_ENTRADA, ROTA_ESQUECI, ROTA_INTERNA, ROTA_REDEFINIR } from "@/lib/auth/rotas";
 import { criarClienteServidor } from "@/lib/supabase/server";
 
-// Destino do link de confirmação enviado pelo Supabase após o cadastro.
+// Destino dos links enviados pelo Supabase: confirmação do cadastro e "esqueci minha senha".
 // Aceita o fluxo PKCE padrão (?code=) e o modelo de e-mail com ?token_hash=&type=.
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -21,6 +21,15 @@ export async function GET(request: NextRequest) {
     confirmado = !error;
   }
 
-  const destino = confirmado ? ROTA_INTERNA : `${ROTA_ENTRADA}?erro=confirmacao`;
+  // Link de nova senha: vai para a tela de nova senha (o modelo com token_hash manda type=recovery;
+  // o padrão PKCE manda ?proximo=/painel/nova-senha, que vem do pedirNovaSenha).
+  const recuperacao = tipo === "recovery" || searchParams.get("proximo") === ROTA_REDEFINIR;
+  const destino = confirmado
+    ? recuperacao
+      ? ROTA_REDEFINIR
+      : ROTA_INTERNA
+    : recuperacao
+      ? `${ROTA_ESQUECI}?erro=link`
+      : `${ROTA_ENTRADA}?erro=confirmacao`;
   return NextResponse.redirect(new URL(destino, request.url));
 }

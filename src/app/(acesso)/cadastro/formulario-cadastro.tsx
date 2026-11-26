@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { NOME_MAXIMO, SENHA_MAXIMO, SENHA_MINIMO } from "@/lib/auth/validacao";
+import { NOME_MAXIMO } from "@/lib/auth/validacao";
+import { CampoSenhaForte } from "../campo-senha";
 import { cadastrar } from "../acoes";
 import { BOTAO_PRINCIPAL } from "@/components/botoes";
 import { Aviso, Campo } from "../campo";
@@ -43,17 +44,7 @@ export function FormularioCadastro() {
         defaultValue={estado.valores?.email}
         erro={estado.erros?.email}
       />
-      <Campo
-        name="senha"
-        rotulo="Senha"
-        type="password"
-        autoComplete="new-password"
-        required
-        minLength={SENHA_MINIMO}
-        maxLength={SENHA_MAXIMO}
-        dica={`Mínimo de ${SENHA_MINIMO} caracteres.`}
-        erro={estado.erros?.senha}
-      />
+      <CampoSenhaForte name="senha" rotulo="Senha" erro={estado.erros?.senha} />
       <Campo
         name="confirmacao"
         rotulo="Confirme a senha"
