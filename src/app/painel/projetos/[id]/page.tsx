@@ -144,7 +144,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           {aba === "sprint" && (
             <div className="flex flex-col gap-6">
               {ativa ? (
-                <SprintAtiva sprint={ativa} cartoes={cartoes} backlog={backlog} podeGerir={pode(funcao, "gerirSprint")} />
+                <SprintAtiva projetoId={projeto.id} sprint={ativa} cartoes={cartoes} backlog={backlog} podeGerir={pode(funcao, "gerirSprint")} />
               ) : pode(funcao, "gerirSprint") ? (
                 <NovaSprint
                   projetoId={projeto.id}
@@ -158,7 +158,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
                   Nenhuma Sprint ativa. O PO ou o SM cria a próxima.
                 </p>
               )}
-              <SprintsEncerradas sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
+              <SprintsEncerradas projetoId={projeto.id} sprints={sprints.filter((s) => s.encerrada)} cartoes={cartoes} />
               {pode(funcao, "gerirSprint") && <SprintAnterior projetoId={projeto.id} hoje={diaLocal(agora)} />}
             </div>
           )}

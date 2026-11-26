@@ -2,7 +2,7 @@
 
 import { useActionState, type ReactNode } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
-import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO, CAIXA } from "@/components/botoes";
+import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO, CAIXA } from "@/components/botoes";
 import type { Cartao, Sprint } from "@/lib/board/dados";
 import { META_SPRINT_MAXIMO } from "@/lib/board/regras";
 import { criarSprint, editarSprint, encerrarSprint, puxarCartoes, registrarSprintAnterior } from "../../acoes";
@@ -125,11 +125,13 @@ export function NovaSprint({
 }
 
 export function SprintAtiva({
+  projetoId,
   sprint,
   cartoes,
   backlog,
   podeGerir,
 }: {
+  projetoId: string;
   sprint: Sprint;
   cartoes: Cartao[];
   backlog: Cartao[];
@@ -146,9 +148,12 @@ export function SprintAtiva({
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-2xl border border-linha-forte bg-painel p-5 shadow-[inset_3px_0_0_var(--color-laranja)]">
-        <h2 className="font-semibold">
-          Sprint {sprint.numero} · {formatarData(sprint.inicio)} a {formatarData(sprint.fim)}
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">
+            Sprint {sprint.numero} · {formatarData(sprint.inicio)} a {formatarData(sprint.fim)}
+          </h2>
+          <LinkRelatorio projetoId={projetoId} sprintId={sprint.id} />
+        </div>
         <p className="mt-1 text-sm">{sprint.meta ?? <span className="text-suave">Sem Meta definida.</span>}</p>
         <p className="mt-2 text-sm tabular-nums">
           <strong>{comprometidos}</strong> pontos comprometidos em {daSprint.length} {daSprint.length === 1 ? "cartão" : "cartões"} ·{" "}
@@ -196,7 +201,7 @@ export function SprintAtiva({
   );
 }
 
-export function SprintsEncerradas({ sprints, cartoes }: { sprints: Sprint[]; cartoes: Cartao[] }): ReactNode {
+export function SprintsEncerradas({ projetoId, sprints, cartoes }: { projetoId: string; sprints: Sprint[]; cartoes: Cartao[] }): ReactNode {
   if (sprints.length === 0) return null;
   return (
     <section className="flex flex-col gap-2">
@@ -212,6 +217,7 @@ export function SprintsEncerradas({ sprints, cartoes }: { sprints: Sprint[]; car
               </span>
               <span className="min-w-0 flex-1 truncate">{s.meta ?? ""}</span>
               <span className="tabular-nums text-suave">{dela.length} cartões</span>
+              <LinkRelatorio projetoId={projetoId} sprintId={s.id} />
             </li>
           );
         })}
@@ -229,15 +235,19 @@ export function SprintAnterior({ projetoId, hoje }: { projetoId: string; hoje: s
       <summary className="flex cursor-pointer list-none items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-laranja [&::-webkit-details-marker]:hidden">
         Registrar Sprint anterior
         <span className="font-normal text-suave">para Sprints feitas antes de usar o Shelper</span>
-        <svg viewBox="0 0 16 16" aria-hidden="true" className="ml-auto size-4 text-suave transition-transform duration-200 ease-suave group-open:rotate-180">
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          className="ml-auto size-4 text-suave transition-transform duration-200 ease-suave group-open:rotate-180"
+        >
           <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </summary>
       <form key={estado.versao ?? 0} action={acao} noValidate className="surgir flex flex-wrap items-end gap-4 border-t border-linha p-4">
         <input type="hidden" name="projeto" value={projetoId} />
         <p className="basis-full text-sm text-suave">
-          A Sprint entra já encerrada, no lugar certo da numeração, e recebe os cartões sem Sprint concluídos entre o início e o fim. Ela pode começar no
-          dia em que outra termina.
+          A Sprint entra já encerrada, no lugar certo da numeração, e recebe os cartões sem Sprint concluídos entre o início e o fim. Ela
+          pode começar no dia em que outra termina.
         </p>
         <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? ""} erro={estado.erros?.inicio} />
         <CampoData nome="fim" rotulo="Fim (antes de hoje)" valor={estado.valores?.fim ?? ""} erro={estado.erros?.fim} />
@@ -249,5 +259,14 @@ export function SprintAnterior({ projetoId, hoje }: { projetoId: string; hoje: s
         <Mensagens estado={estado} />
       </form>
     </details>
+  );
+}
+
+// Relatório da Sprint em página de impressão (A4): o navegador salva como PDF.
+function LinkRelatorio({ projetoId, sprintId }: { projetoId: string; sprintId: string }) {
+  return (
+    <a href={`/painel/projetos/${projetoId}/sprints/${sprintId}/relatorio`} target="_blank" className={BOTAO_MINI}>
+      Relatório em PDF<span className="sr-only"> (abre em outra aba)</span>
+    </a>
   );
 }
