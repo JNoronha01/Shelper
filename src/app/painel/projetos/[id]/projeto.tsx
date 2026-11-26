@@ -11,6 +11,7 @@ import { ConfiguracaoWip } from "./configuracao-wip";
 import { ConectarIa } from "./conectar-ia";
 import { ExportarProjeto } from "./exportar";
 import { ImportarBoard } from "./importar-board";
+import { SprintForaBacklog } from "./sprint-fora-backlog";
 
 type Projeto = DadosBoard["projeto"];
 
@@ -28,12 +29,14 @@ export function AbaProjeto({
   podeEditar,
   horas,
   chaves,
+  podeGerirSprint,
 }: {
   projeto: Projeto;
   metas: Metas;
   podeEditar: boolean;
   horas: Horas;
   chaves: ChaveApi[];
+  podeGerirSprint: boolean;
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
@@ -41,6 +44,7 @@ export function AbaProjeto({
       <div className="flex flex-col gap-6">
         <HorasDoContrato contratadas={projeto.horasContratadas} horas={horas} />
         <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
+        {podeGerirSprint && <SprintForaBacklog projetoId={projeto.id} ligado={projeto.sprintForaBacklog} />}
       </div>
       <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
         <ConectarIa projetoId={projeto.id} chaves={chaves} />

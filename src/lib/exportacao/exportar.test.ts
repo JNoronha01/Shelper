@@ -25,7 +25,7 @@ const dados: DadosExportacao = {
     cartao({ id: "c1", titulo: "H1 - Login", coluna: "Concluído", checklist: [{ id: "i", texto: "Tela", feito: true }] }),
     cartao({ id: "c2", titulo: "=SOMA(A1)", coluna: "Backlog", sprintId: null, responsavelId: null, descricao: "linha 1\nlinha; 2" }),
   ],
-  sprints: [{ id: "s1", numero: 1, inicio: "2026-11-10", fim: "2026-11-17", meta: "MVP", encerrada: true }],
+  sprints: [{ id: "s1", numero: 1, inicio: "2026-11-10", fim: "2026-11-17", meta: "MVP", encerrada: true, foraDoBacklog: false }],
   time: [{ usuarioId: "u1", nome: "Ana", email: "a@x.com", funcao: "dev", entrouEm: "", foto: null }],
   eventos: [
     { cartaoId: "c1", de: null, para: "A fazer", em: "2026-11-10T12:00:00.000Z" },

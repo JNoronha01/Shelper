@@ -89,6 +89,12 @@ export function Metricas({
         </nav>
         {aba === "metricas" && <FiltroPessoa projetoId={projetoId} periodo={escolhida} pessoa={pessoa?.id ?? ""} time={time} />}
       </div>
+      {sprints.find((s) => s.id === escolhida)?.foraDoBacklog && (
+        <p className="rounded-xl border border-aviso/40 bg-aviso/10 px-4 py-2.5 text-sm">
+          Esta Sprint foi planejada com cartões de fora do Backlog: alguns já estavam em andamento ou concluídos quando ela começou.
+          Burndown e Velocity contam esses cartões normalmente.
+        </p>
+      )}
       {pessoa && (
         <p className="text-sm text-suave">
           {aba === "minhas" ? "Seus números" : `Números de ${pessoa.nome}`}: só os cartões em que{" "}

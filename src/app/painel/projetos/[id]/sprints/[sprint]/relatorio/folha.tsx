@@ -81,6 +81,12 @@ export function FolhaRelatorio({
         <section>
           <h2 className="mb-1 text-sm font-semibold">Meta da Sprint</h2>
           <p>{sprint.meta ?? "Sem meta definida."}</p>
+          {sprint.foraDoBacklog && (
+            <p className="mt-2 border-l-2 border-neutral-400 pl-3 text-xs text-neutral-600">
+              Sprint planejada com cartões de fora do Backlog: alguns já estavam em andamento ou concluídos quando ela começou. Burndown e
+              Velocity contam esses cartões normalmente.
+            </p>
+          )}
         </section>
 
         <section>

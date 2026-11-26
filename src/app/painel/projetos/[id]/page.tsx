@@ -47,7 +47,7 @@ import { Historico } from "./historico";
 import { Graficos, type DadosGraficos } from "./graficos";
 import { Metricas } from "./metricas";
 import { AbaProjeto } from "./projeto";
-import { NovaSprint, SprintAnterior, SprintAtiva, SprintsEncerradas } from "./sprint";
+import { NovaSprint, SprintAnterior, SprintAtiva, SprintsEncerradas, type CandidatoFora } from "./sprint";
 import { Time } from "./time";
 import { Votacoes } from "./votacao";
 
@@ -78,6 +78,8 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
   // Horas do contrato: as estimadas dos cartões concluídos contam como usadas.
   const horas = horasDoContrato(cartoes);
   const chaves = aba === "projeto" ? await carregarMinhasChaves(projeto.id) : [];
+  const fora =
+    aba === "sprint" && projeto.sprintForaBacklog && pode(funcao, "gerirSprint") ? await candidatosFora(projeto.id, cartoes) : null;
 
   return (
     <>
@@ -154,12 +156,14 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
                   sprint={ativa}
                   cartoes={cartoes}
                   backlog={backlog}
+                  fora={fora}
                   podeGerir={pode(funcao, "gerirSprint")}
                 />
               ) : pode(funcao, "gerirSprint") ? (
                 <NovaSprint
                   projetoId={projeto.id}
                   backlog={backlog}
+                  fora={fora}
                   hoje={diaLocal(agora)}
                   numero={sprints.length + 1}
                   duracao={projeto.duracaoSprint ?? 14}
@@ -211,12 +215,34 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           )}
           {aba === "time" && <AbaTime projetoId={projeto.id} funcao={funcao} meuId={usuario.id} agora={agora} />}
           {aba === "projeto" && (
-            <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} chaves={chaves} />
+            <AbaProjeto
+              projeto={projeto}
+              metas={metas}
+              podeEditar={pode(funcao, "editarCadastro")}
+              horas={horas}
+              chaves={chaves}
+              podeGerirSprint={pode(funcao, "gerirSprint")}
+            />
           )}
         </ConteudoAba>
       </ProvedorAbas>
     </>
   );
+}
+
+// Cartões sem Sprint fora do Backlog, com o dia (Brasília) da última chegada em Concluído.
+// O filtro "concluído antes do início" depende da data que a pessoa digita, então fica na tela.
+async function candidatosFora(projetoId: string, cartoes: Cartao[]): Promise<CandidatoFora[]> {
+  const soltos = cartoes.filter((c) => c.sprintId === null && c.coluna !== "Backlog");
+  if (soltos.length === 0) return [];
+  const ultimo = new Map<string, string>();
+  for (const e of await carregarEventosParaCalculo(projetoId)) {
+    if (e.para === "Concluído" && (ultimo.get(e.cartaoId) ?? "") < e.em) ultimo.set(e.cartaoId, e.em);
+  }
+  return soltos.map((c) => {
+    const em = ultimo.get(c.id);
+    return { cartao: c, concluidoDia: em ? diaLocal(em) : null };
+  });
 }
 
 // Só carrega todos os eventos quando a aba Métricas é aberta.
