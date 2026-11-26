@@ -63,8 +63,8 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
           Conectar com IA
         </h2>
         <p className="text-sm text-suave">
-          Gere uma chave e o Claude, o Cursor ou outro programa passa a ler o board e as métricas e a criar, mover e editar cartões. A IA age
-          como você, com o seu papel no projeto.{" "}
+          Gere uma chave e o Claude, o Cursor ou outro programa passa a ler o board e as métricas e a criar, mover e editar cartões. A IA
+          age como você, com o seu papel no projeto.{" "}
           <Link href="/api" target="_blank" className="text-laranja underline underline-offset-4">
             Ver a documentação
           </Link>
@@ -90,7 +90,9 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
                 <button
                   type="button"
                   className={BOTAO_MINI}
-                  onClick={() => copiar(`claude mcp add --transport http shelper ${origem}/api/mcp --header "Authorization: Bearer ${nova}"`, "Comando")}
+                  onClick={() =>
+                    copiar(`claude mcp add --transport http shelper ${origem}/api/mcp --header "Authorization: Bearer ${nova}"`, "Comando")
+                  }
                 >
                   Copiar
                 </button>
@@ -121,7 +123,13 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
         >
           <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-sm font-medium">
             Nome da chave
-            <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={60} placeholder="Ex.: Claude do Jorge" className={CAMPO} />
+            <input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              maxLength={60}
+              placeholder="Ex.: Claude do Jorge"
+              className={CAMPO}
+            />
           </label>
           <div className="flex flex-col gap-1.5 text-sm font-medium">
             <span>Validade</span>

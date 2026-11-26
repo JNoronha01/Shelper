@@ -18,7 +18,11 @@ const ROTAS: [string, string, string][] = [
   ["POST", "/api/v1/cartoes/{id}/mover", "Move para outra coluna: coluna, confirmar_wip."],
   ["POST", "/api/v1/cartoes/{id}/checklist", "Adiciona item ao checklist: texto."],
   ["PATCH", "/api/v1/cartoes/{id}/checklist/{item}", "Marca ou desmarca um item: feito."],
-  ["GET", "/api/v1/metricas", "Lead Time, Cycle Time, Throughput, Velocity e gargalo. Com ?sprint=ativa, também Burndown e números por pessoa."],
+  [
+    "GET",
+    "/api/v1/metricas",
+    "Lead Time, Cycle Time, Throughput, Velocity e gargalo. Com ?sprint=ativa, também Burndown e números por pessoa.",
+  ],
 ];
 
 const ERROS: [string, string][] = [
@@ -56,8 +60,8 @@ export default function PaginaApi() {
         <div className="flex flex-col gap-3">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">API e MCP do Shelper</h1>
           <p className="text-suave">
-            Conecte o Shelper ao Claude, ao Cursor ou a qualquer programa. A IA lê o board e as métricas e pode criar, mover e editar cartões,
-            sempre com as mesmas regras do site: limite de WIP, pontos de Fibonacci e o papel de quem gerou a chave.
+            Conecte o Shelper ao Claude, ao Cursor ou a qualquer programa. A IA lê o board e as métricas e pode criar, mover e editar
+            cartões, sempre com as mesmas regras do site: limite de WIP, pontos de Fibonacci e o papel de quem gerou a chave.
           </p>
         </div>
 
@@ -68,7 +72,8 @@ export default function PaginaApi() {
             <li>Copie a chave na hora: ela começa com shp_ e não aparece de novo. O Shelper guarda só o hash dela, como faz com senhas.</li>
           </ol>
           <p className="text-sm text-suave">
-            A chave age como você: com o seu papel e só neste projeto. Se você sair do time, ou revogar a chave, ela para de funcionar na hora.
+            A chave age como você: com o seu papel e só neste projeto. Se você sair do time, ou revogar a chave, ela para de funcionar na
+            hora.
           </p>
         </Secao>
 
@@ -80,7 +85,7 @@ export default function PaginaApi() {
             {FERRAMENTAS.map((f) => (
               <li key={f.name} className="rounded-xl border border-linha bg-cartao p-3">
                 <code className="text-xs text-laranja-claro">{f.name}</code>
-                <p className="mt-1 text-suave">{f.description.split(". ")[0]}.</p>
+                <p className="mt-1 text-suave">{f.description.split(". ")[0].replace(/\.$/, "")}.</p>
               </li>
             ))}
           </ul>
@@ -89,8 +94,8 @@ export default function PaginaApi() {
   --header "Authorization: Bearer shp_SUA_CHAVE"`}</Codigo>
           <h3 className="mt-2 font-semibold">claude.ai e Claude Desktop</h3>
           <p className="text-sm text-suave">
-            Configurações → Conectores → Adicionar conector personalizado, com o endereço abaixo. Ele já leva a chave, porque esses conectores
-            não deixam configurar cabeçalho: trate o endereço como senha.
+            Configurações → Conectores → Adicionar conector personalizado, com o endereço abaixo. Ele já leva a chave, porque esses
+            conectores não deixam configurar cabeçalho: trate o endereço como senha.
           </p>
           <Codigo>{`${BASE}/api/mcp/shp_SUA_CHAVE`}</Codigo>
           <h3 className="mt-2 font-semibold">Cursor e outros clientes MCP</h3>
@@ -112,8 +117,8 @@ export default function PaginaApi() {
 
         <Secao id="rest" titulo="3. API REST">
           <p className="text-sm text-suave">
-            Para scripts e outros programas. Mande a chave no cabeçalho <code>Authorization: Bearer shp_...</code>. Respostas em JSON, campos
-            em português.
+            Para scripts e outros programas. Mande a chave no cabeçalho <code>Authorization: Bearer shp_...</code>. Respostas em JSON,
+            campos em português.
           </p>
           <div className="overflow-x-auto rounded-xl border border-linha">
             <table className="w-full text-left text-sm">

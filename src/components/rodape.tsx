@@ -26,6 +26,7 @@ const GRUPOS = [
     links: [
       ["Entre em contato", "/contato"],
       ["Normas que seguimos", "/normas"],
+      ["API e MCP para IAs", "/api"],
       ["Privacidade (LGPD)", "/normas#lgpd"],
       ["Código no GitHub", REPOSITORIO],
     ],

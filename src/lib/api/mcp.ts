@@ -37,7 +37,8 @@ export const FERRAMENTAS: Ferramenta[] = [
   {
     name: "listar_cartoes",
     title: "Listar cartões",
-    description: "Lista os cartões do board, com filtros opcionais. Cada cartão traz id, título, pontos, coluna, Sprint, responsável e checklist.",
+    description:
+      "Lista os cartões do board, com filtros opcionais. Cada cartão traz id, título, pontos, coluna, Sprint, responsável e checklist.",
     inputSchema: {
       type: "object",
       properties: {
@@ -147,7 +148,11 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Marca (ou desmarca) um item do checklist como feito. O id do item vem em ver_cartao.",
     inputSchema: {
       type: "object",
-      properties: { cartao: ID, item: { type: "string", description: "Id do item (uuid)." }, feito: { type: "boolean", description: "Padrão: true." } },
+      properties: {
+        cartao: ID,
+        item: { type: "string", description: "Id do item (uuid)." },
+        feito: { type: "boolean", description: "Padrão: true." },
+      },
       required: ["cartao", "item"],
       additionalProperties: false,
     },
@@ -219,7 +224,10 @@ export async function responderMcp(req: Request, chave: string | null): Promise<
     return new Response("Este servidor MCP aceita só POST (Streamable HTTP, sem SSE).", { status: 405, headers: { Allow: "POST" } });
   }
   if (!chave) {
-    return json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: "Envie a chave do Shelper (Authorization: Bearer shp_...)." } }, 401);
+    return json(
+      { jsonrpc: "2.0", id: null, error: { code: -32001, message: "Envie a chave do Shelper (Authorization: Bearer shp_...)." } },
+      401,
+    );
   }
   let corpo: unknown;
   try {
@@ -228,7 +236,18 @@ export async function responderMcp(req: Request, chave: string | null): Promise<
     return json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "JSON inválido." } }, 400);
   }
   const pedidos = Array.isArray(corpo) ? corpo : [corpo];
-  if (pedidos.length === 0 || pedidos.length > 20) return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Lote vazio ou grande demais." } }, 400);
+  if (pedidos.length === 0 || pedidos.length > 20)
+    return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Lote vazio ou grande demais." } }, 400);
+  // Ao conectar, a chave já é conferida: chave errada aparece como erro de conexão na IA.
+  if (pedidos.some((p) => (p as Pedido | null)?.method === "initialize")) {
+    try {
+      await operacoes.projeto(chave);
+    } catch (e) {
+      if (e instanceof ErroApi && e.status === 401) {
+        return json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: e.message } }, 401);
+      }
+    }
+  }
   const respostas = (await Promise.all(pedidos.map((p) => atender((p ?? {}) as Pedido, chave)))).filter((r): r is Resposta => r !== null);
   // Só notificações: 202 sem corpo, como o protocolo pede.
   if (respostas.length === 0) return new Response(null, { status: 202 });

@@ -40,13 +40,19 @@ export async function responderRest(req: Request, caminho: string[]): Promise<Re
     if (recurso === "projeto" && !id && m === "GET") r = await operacoes.projeto(chave);
     else if (recurso === "metricas" && !id && m === "GET") r = await operacoes.metricas(chave, q.get("sprint"));
     else if (recurso === "cartoes" && !id && m === "GET")
-      r = await operacoes.cartoes(chave, { coluna: q.get("coluna"), sprint: q.get("sprint"), responsavel: q.get("responsavel"), busca: q.get("busca") });
+      r = await operacoes.cartoes(chave, {
+        coluna: q.get("coluna"),
+        sprint: q.get("sprint"),
+        responsavel: q.get("responsavel"),
+        busca: q.get("busca"),
+      });
     else if (recurso === "cartoes" && !id && m === "POST") {
       r = await operacoes.criarCartao(chave, await corpo(req));
       if ((r as { ok: boolean }).ok) status = 201;
     } else if (recurso === "cartoes" && id && !sub && m === "GET") r = await operacoes.cartao(chave, id);
     else if (recurso === "cartoes" && id && !sub && m === "PATCH") r = await operacoes.editarCartao(chave, id, await corpo(req));
-    else if (recurso === "cartoes" && id && sub === "mover" && !item && m === "POST") r = await operacoes.moverCartao(chave, id, await corpo(req));
+    else if (recurso === "cartoes" && id && sub === "mover" && !item && m === "POST")
+      r = await operacoes.moverCartao(chave, id, await corpo(req));
     else if (recurso === "cartoes" && id && sub === "checklist" && !item && m === "POST") {
       r = await operacoes.adicionarChecklist(chave, id, await corpo(req));
       status = 201;

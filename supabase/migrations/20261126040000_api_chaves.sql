@@ -204,11 +204,19 @@ begin
     when 'mover_cartao' then
       r := public.mover_cartao(v_cartao, p_args->>'coluna', coalesce((p_args->>'confirmar_wip')::boolean, false));
     when 'editar_cartao' then
-      perform public.editar_cartao_completo(
-        v_cartao,
-        coalesce(p_args->>'titulo', (select titulo from public.cartoes where id = v_cartao)),
-        coalesce((p_args->>'pontos')::integer, (select pontos from public.cartoes where id = v_cartao)),
-        case when p_args ? 'horas' then (p_args->>'horas')::numeric else (select horas_estimadas from public.cartoes where id = v_cartao) end);
+      -- Horas só passam pela edição completa (que exige um valor); título e pontos, pela simples.
+      if p_args ? 'horas' then
+        perform public.editar_cartao_completo(
+          v_cartao,
+          coalesce(p_args->>'titulo', (select titulo from public.cartoes where id = v_cartao)),
+          coalesce((p_args->>'pontos')::integer, (select pontos from public.cartoes where id = v_cartao)),
+          (p_args->>'horas')::numeric);
+      elsif p_args ? 'titulo' or p_args ? 'pontos' then
+        perform public.editar_cartao(
+          v_cartao,
+          coalesce(p_args->>'titulo', (select titulo from public.cartoes where id = v_cartao)),
+          coalesce((p_args->>'pontos')::integer, (select pontos from public.cartoes where id = v_cartao)));
+      end if;
       if p_args ? 'descricao' then
         perform public.salvar_descricao(v_cartao, p_args->>'descricao');
       end if;

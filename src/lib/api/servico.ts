@@ -39,7 +39,15 @@ async function executar(chave: string, acao: string, args: Record<string, unknow
   if (!FORMATO_CHAVE.test(chave)) throw new ErroApi(401, "Chave da API ausente ou em formato inválido.");
   const { data, error } = await cliente().rpc("api_executar", { p_chave: chave, p_acao: acao, p_args: args });
   if (error) throw erroDoBanco(error);
-  return data as { status: string; id?: string; item?: string; acima_do_wip?: boolean; coluna?: string; limite?: number; ocupados?: number };
+  return data as {
+    status: string;
+    id?: string;
+    item?: string;
+    acima_do_wip?: boolean;
+    coluna?: string;
+    limite?: number;
+    ocupados?: number;
+  };
 }
 
 // Resposta de quando a coluna está no limite de WIP: nada mudou, e a IA precisa confirmar.
@@ -75,12 +83,17 @@ export const operacoes = {
     if (a.coluna !== undefined && !(COLUNAS as readonly unknown[]).includes(a.coluna)) {
       throw new ErroApi(400, `Coluna inválida. Use uma destas: ${COLUNAS.join(", ")}.`);
     }
-    const r = await executar(chave, "criar_cartao", limpar(a, ["titulo", "pontos", "coluna", "descricao", "horas", "responsavel", "confirmar_wip"]));
+    const r = await executar(
+      chave,
+      "criar_cartao",
+      limpar(a, ["titulo", "pontos", "coluna", "descricao", "horas", "responsavel", "confirmar_wip"]),
+    );
     if (r.status === "wip") return respostaWip(r);
     return { ok: true, id: r.id, acima_do_wip: r.acima_do_wip === true };
   },
   async moverCartao(chave: string, id: string, a: Record<string, unknown>) {
-    if (!(COLUNAS as readonly unknown[]).includes(a.coluna)) throw new ErroApi(400, `Coluna inválida. Use uma destas: ${COLUNAS.join(", ")}.`);
+    if (!(COLUNAS as readonly unknown[]).includes(a.coluna))
+      throw new ErroApi(400, `Coluna inválida. Use uma destas: ${COLUNAS.join(", ")}.`);
     const r = await executar(chave, "mover_cartao", { cartao: id, coluna: a.coluna, confirmar_wip: a.confirmar_wip === true });
     if (r.status === "wip") return respostaWip(r);
     if (r.status === "sem_mudanca") return { ok: true, mensagem: "O cartão já estava nessa coluna." };
@@ -88,7 +101,8 @@ export const operacoes = {
   },
   async editarCartao(chave: string, id: string, a: Record<string, unknown>) {
     const campos = limpar(a, ["titulo", "pontos", "horas", "descricao", "responsavel"]);
-    if (Object.keys(campos).length === 0) throw new ErroApi(400, "Nada para alterar. Envie titulo, pontos, horas, descricao ou responsavel.");
+    if (Object.keys(campos).length === 0)
+      throw new ErroApi(400, "Nada para alterar. Envie titulo, pontos, horas, descricao ou responsavel.");
     await executar(chave, "editar_cartao", { ...campos, cartao: id });
     return { ok: true };
   },
