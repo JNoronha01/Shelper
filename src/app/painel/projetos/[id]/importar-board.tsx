@@ -6,25 +6,21 @@ import { useAvisar } from "@/components/avisos";
 import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, BOTAO_TEXTO } from "@/components/botoes";
 import { Seletor } from "@/components/seletor";
 import { COLUNAS, type Coluna } from "@/lib/colunas";
-import {
-  listasDoExport,
-  montarImportacao,
-  resumoDaImportacao,
-  validarExport,
-  type ListaTrello,
-  type MapaListas,
-} from "@/lib/importacao/trello";
+import { MODELO_CSV } from "@/lib/importacao/csv";
+import { lerArquivo, type Fonte } from "@/lib/importacao/fonte";
+import { resumoDaImportacao, type ListaTrello, type MapaListas } from "@/lib/importacao/trello";
 import { importarTrello } from "../../acoes";
 
-// Importar do Trello (só o PO). O arquivo é lido aqui no navegador: a pessoa confere a prévia,
-// escolhe a coluna de cada lista e só então os cartões vão para o servidor.
+// Importar board (só o PO): JSON do Trello, JSON do Shelper ou CSV (Trello Premium, Jira, planilha).
+// O arquivo é lido aqui no navegador: a pessoa confere a prévia, escolhe a coluna de cada lista
+// e só então os cartões vão para o servidor.
 const NAO_IMPORTAR = "";
 const MAX_ARQUIVO = 20 * 1024 * 1024;
 
-export function ImportarTrello({ projetoId }: { projetoId: string }) {
+export function ImportarBoard({ projetoId }: { projetoId: string }) {
   const avisar = useAvisar();
   const entrada = useRef<HTMLInputElement>(null);
-  const [dados, setDados] = useState<Record<string, unknown> | null>(null);
+  const [dados, setDados] = useState<Fonte | null>(null);
   const [nomeArquivo, setNomeArquivo] = useState("");
   const [listas, setListas] = useState<ListaTrello[]>([]);
   const [mapa, setMapa] = useState<MapaListas>({});
@@ -39,24 +35,23 @@ export function ImportarTrello({ projetoId }: { projetoId: string }) {
       return;
     }
     try {
-      const v = validarExport(JSON.parse(await arquivo.text()));
-      if (!v.ok) {
-        setErro(v.erro);
+      const r = lerArquivo(arquivo.name, await arquivo.text());
+      if (!r.ok) {
+        setErro(r.erro);
         return;
       }
-      const ls = listasDoExport(v.dados);
-      setDados(v.dados);
+      setDados(r.fonte);
       setNomeArquivo(arquivo.name);
-      setListas(ls);
-      setMapa(Object.fromEntries(ls.map((l) => [l.id, l.sugestao])));
+      setListas(r.fonte.listas);
+      setMapa(Object.fromEntries(r.fonte.listas.map((l) => [l.id, l.sugestao])));
     } catch {
-      setErro("Não foi possível ler o arquivo. Ele precisa ser o JSON exportado pelo Trello.");
+      setErro("Não foi possível ler o arquivo. Ele precisa ser um JSON (Trello ou Shelper) ou um CSV.");
     } finally {
       if (entrada.current) entrada.current.value = "";
     }
   }
 
-  const importacao = dados ? montarImportacao(dados, mapa) : null;
+  const importacao = dados ? dados.montar(mapa) : null;
   const resumo = importacao ? resumoDaImportacao(importacao) : [];
   const eventos = importacao?.cartoes.reduce((s, c) => s + c.eventos.length, 0) ?? 0;
 
@@ -82,37 +77,57 @@ export function ImportarTrello({ projetoId }: { projetoId: string }) {
     <section aria-labelledby="titulo-importar" className="flex flex-col gap-4 rounded-2xl border border-linha bg-painel p-5">
       <div>
         <h2 id="titulo-importar" className="font-semibold">
-          Importar do Trello
+          Importar board
         </h2>
-        <p className="text-sm text-suave">
-          No Trello, abra o board e use o menu Imprimir, exportar e compartilhar → Exportar como JSON (funciona no plano grátis). Os cartões
-          entram com pontos, descrição, checklist e os movimentos com as datas do Trello. Importar de novo não duplica cartões.
-        </p>
+        <p className="text-sm text-suave">Traga os cartões de outra ferramenta. Importar o mesmo arquivo de novo não duplica cartões.</p>
+        <ul className="mt-2 flex flex-col gap-1 text-sm text-suave">
+          <li>
+            <strong className="font-medium text-texto">Trello (.json):</strong> no board, menu Imprimir, exportar e compartilhar → Exportar
+            como JSON (plano grátis). Vem com o histórico de movimentos.
+          </li>
+          <li>
+            <strong className="font-medium text-texto">Shelper (.json):</strong> o arquivo Completo da seção Exportar, de outro projeto. Vem
+            com o histórico.
+          </li>
+          <li>
+            <strong className="font-medium text-texto">CSV:</strong> do Trello (Premium), do Jira ou de uma planilha. Sem histórico: valem
+            as datas de criação e conclusão.{" "}
+            <a
+              href={`data:text/csv;charset=utf-8,${encodeURIComponent("\uFEFF" + MODELO_CSV)}`}
+              download="modelo-shelper.csv"
+              className="text-laranja underline underline-offset-4"
+            >
+              Baixar modelo CSV
+            </a>
+          </li>
+        </ul>
       </div>
 
       {!dados ? (
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className={BOTAO_SECUNDARIO} onClick={() => entrada.current?.click()}>
-            Escolher arquivo .json
+            Escolher arquivo .json ou .csv
           </button>
           <input
             ref={entrada}
             type="file"
-            accept="application/json,.json"
+            accept="application/json,.json,text/csv,.csv"
             className="sr-only"
             tabIndex={-1}
-            aria-label="Arquivo JSON do Trello"
+            aria-label="Arquivo JSON ou CSV do board"
             onChange={(e) => ler(e.target.files?.[0])}
           />
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            Arquivo: <strong className="font-medium">{nomeArquivo}</strong>
+            Arquivo: <strong className="font-medium">{nomeArquivo}</strong> <span className="text-suave">({dados.descricao})</span>
           </p>
 
           <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">Para qual coluna vai cada lista</h3>
+            <h3 className="text-sm font-semibold">
+              {dados.origem === "csv" ? "Para qual coluna vai cada status" : "Para qual coluna vai cada lista"}
+            </h3>
             <ul className="flex flex-col divide-y divide-linha rounded-xl border border-linha">
               {listas.map((l) => (
                 <li key={l.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2">
@@ -155,8 +170,8 @@ export function ImportarTrello({ projetoId }: { projetoId: string }) {
               </tbody>
             </table>
             <p className="text-sm text-suave">
-              {importacao?.cartoes.length ?? 0} cartões e {eventos} movimentos. Responsáveis, horas estimadas e Sprints não vêm do Trello:
-              ajuste depois no board e na aba Sprint.
+              {importacao?.cartoes.length ?? 0} cartões e {eventos} movimentos. Responsáveis, horas estimadas e Sprints não vêm no arquivo:
+              ajuste depois no board e na aba Sprint (Registrar Sprint anterior liga os concluídos às Sprints passadas).
             </p>
             {importacao && importacao.avisos.length > 0 && (
               <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-aviso">
@@ -181,7 +196,13 @@ export function ImportarTrello({ projetoId }: { projetoId: string }) {
             >
               Cancelar
             </button>
-            <button aria-busy={enviando} type="button" className={BOTAO_PRINCIPAL} disabled={enviando || !importacao?.cartoes.length} onClick={confirmar}>
+            <button
+              aria-busy={enviando}
+              type="button"
+              className={BOTAO_PRINCIPAL}
+              disabled={enviando || !importacao?.cartoes.length}
+              onClick={confirmar}
+            >
               {enviando ? "Importando…" : `Importar ${importacao?.cartoes.length ?? 0} cartões`}
             </button>
           </div>

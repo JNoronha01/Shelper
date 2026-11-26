@@ -9,7 +9,8 @@ import { editarProjeto } from "../../acoes";
 import { ESTADO_INICIAL } from "../../estado";
 import { ConfiguracaoWip } from "./configuracao-wip";
 import { ConectarIa } from "./conectar-ia";
-import { ImportarTrello } from "./importar-trello";
+import { ExportarProjeto } from "./exportar";
+import { ImportarBoard } from "./importar-board";
 
 type Projeto = DadosBoard["projeto"];
 
@@ -21,7 +22,19 @@ const num = (n: number | null, sufixo: string) => (n === null ? "não informado"
 // O PO edita o cadastro; o SM só vê. Os dois alteram o WIP.
 type Horas = { usadas: number; planejadas: number; semEstimativa: number };
 
-export function AbaProjeto({ projeto, metas, podeEditar, horas, chaves }: { projeto: Projeto; metas: Metas; podeEditar: boolean; horas: Horas; chaves: ChaveApi[] }) {
+export function AbaProjeto({
+  projeto,
+  metas,
+  podeEditar,
+  horas,
+  chaves,
+}: {
+  projeto: Projeto;
+  metas: Metas;
+  podeEditar: boolean;
+  horas: Horas;
+  chaves: ChaveApi[];
+}) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
       {podeEditar ? <EditarCadastro projeto={projeto} metas={metas} /> : <Resumo projeto={projeto} metas={metas} />}
@@ -29,14 +42,11 @@ export function AbaProjeto({ projeto, metas, podeEditar, horas, chaves }: { proj
         <HorasDoContrato contratadas={projeto.horasContratadas} horas={horas} />
         <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
       </div>
-      <div className="lg:col-span-2">
+      <div className="flex flex-col gap-6 lg:col-span-2">
         <ConectarIa projetoId={projeto.id} chaves={chaves} />
+        <ExportarProjeto projetoId={projeto.id} />
+        {podeEditar && <ImportarBoard projetoId={projeto.id} />}
       </div>
-      {podeEditar && (
-        <div className="lg:col-span-2">
-          <ImportarTrello projetoId={projeto.id} />
-        </div>
-      )}
     </div>
   );
 }
@@ -65,7 +75,9 @@ function EditarCadastro({ projeto, metas }: { projeto: Projeto; metas: Metas }) 
         <p className="text-sm text-suave">Todos os campos são obrigatórios. Só o Product Owner altera.</p>
       </div>
       {!projeto.cadastroCompleto && (
-        <Aviso tipo="erro">Este projeto foi criado antes do cadastro completo. Preencha os campos que faltam para as métricas usarem as metas.</Aviso>
+        <Aviso tipo="erro">
+          Este projeto foi criado antes do cadastro completo. Preencha os campos que faltam para as métricas usarem as metas.
+        </Aviso>
       )}
       <form key={estado.versao ?? 0} action={acao} noValidate className="flex flex-col gap-4">
         <input type="hidden" name="projeto" value={projeto.id} />
@@ -131,7 +143,10 @@ function HorasDoContrato({ contratadas, horas }: { contratadas: number | null; h
       {contratadas ? (
         <>
           <p className="text-2xl font-semibold tabular-nums">
-            {h(horas.usadas)} <span className="text-base font-normal text-suave">de {h(contratadas)} usadas ({usadasPct}%)</span>
+            {h(horas.usadas)}{" "}
+            <span className="text-base font-normal text-suave">
+              de {h(contratadas)} usadas ({usadasPct}%)
+            </span>
           </p>
           {/* Duas camadas: planejado (todos os cartões) e, por cima, o usado (concluídos). */}
           <div
@@ -148,7 +163,8 @@ function HorasDoContrato({ contratadas, horas }: { contratadas: number | null; h
           <p className={`text-sm ${estourou ? "text-perigo" : "text-suave"}`}>
             {h(horas.planejadas)} planejadas em cartões
             {estourou ? ", acima do contratado." : "."}
-            {horas.semEstimativa > 0 && ` ${horas.semEstimativa} ${horas.semEstimativa === 1 ? "cartão está" : "cartões estão"} sem estimativa.`}
+            {horas.semEstimativa > 0 &&
+              ` ${horas.semEstimativa} ${horas.semEstimativa === 1 ? "cartão está" : "cartões estão"} sem estimativa.`}
           </p>
         </>
       ) : (
