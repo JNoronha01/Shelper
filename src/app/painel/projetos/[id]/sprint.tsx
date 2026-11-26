@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useRef, useState, type ReactNode } from "react";
 import { Aviso } from "@/app/(acesso)/campo";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, CAMPO, CAIXA } from "@/components/botoes";
 import type { Cartao, Sprint } from "@/lib/board/dados";
@@ -103,51 +103,71 @@ function ListaCartoes({ backlog, fora, inicio }: { backlog: Cartao[]; fora: Cand
       {backlog.length === 0 ? (
         <p className="text-sm text-suave">Não há cartões no Backlog para puxar.</p>
       ) : (
-        <fieldset>
-          <legend className="mb-1 text-sm font-medium">Cartões do Backlog (vão para A fazer)</legend>
-          <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-linha p-2">
-            {backlog.map((c) => (
-              <Opcao key={c.id} c={c} />
-            ))}
-          </ul>
-        </fieldset>
+        <Grupo titulo="Cartões do Backlog (vão para A fazer)">
+          {backlog.map((c) => (
+            <Opcao key={c.id} c={c} />
+          ))}
+        </Grupo>
       )}
       {fora && (
-        <fieldset>
-          <legend className="mb-1 flex w-full items-center justify-between gap-3 text-sm font-medium">
-            Cartões sem Sprint de outras colunas (ficam onde estão)
-            {validos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) =>
-                  e.currentTarget
-                    .closest("fieldset")
-                    ?.querySelectorAll<HTMLInputElement>('input[name="cartoes"]')
-                    .forEach((i) => (i.checked = true))
-                }
-                className={BOTAO_MINI}
-              >
-                Marcar todos
-              </button>
-            )}
-          </legend>
+        <div>
           {validos.length === 0 ? (
             <p className="text-sm text-suave">Nenhum cartão sem Sprint fora do Backlog.</p>
           ) : (
-            <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-aviso/40 p-2">
+            <Grupo titulo="Cartões sem Sprint de outras colunas (ficam onde estão)" destaque>
               {validos.map((f) => (
                 <Opcao key={f.cartao.id} c={f.cartao} detalhe={f.cartao.coluna} />
               ))}
-            </ul>
+            </Grupo>
           )}
           <p className="mt-1 text-xs text-suave">
             Liberado na aba Projeto. A Sprint fica marcada como planejada fora do Backlog nas métricas e no relatório.
             {escondidos > 0 &&
               ` ${escondidos} ${escondidos === 1 ? "cartão concluído antes do início não aparece" : "cartões concluídos antes do início não aparecem"}.`}
           </p>
-        </fieldset>
+        </div>
       )}
     </div>
+  );
+}
+
+// Grupo de caixas com um botão só que alterna entre "Marcar todos" e "Desmarcar todos".
+// As caixas não são controladas (o formulário lê do DOM); o grupo só conta quantas estão marcadas.
+function Grupo({ titulo, destaque, children }: { titulo: string; destaque?: boolean; children: ReactNode[] }) {
+  const ref = useRef<HTMLFieldSetElement>(null);
+  const [marcadas, setMarcadas] = useState(0);
+  const caixas = () => [...(ref.current?.querySelectorAll<HTMLInputElement>('input[name="cartoes"]') ?? [])];
+  const contar = () => setMarcadas(caixas().filter((i) => i.checked).length);
+  const todas = marcadas === children.length;
+  return (
+    <fieldset ref={ref} onChange={contar}>
+      <legend className="mb-1 flex w-full items-center justify-between gap-3 text-sm font-medium">
+        <span>
+          {titulo}
+          {marcadas > 0 && (
+            <span className="ml-2 font-normal text-suave tabular-nums">
+              {marcadas} {marcadas === 1 ? "marcado" : "marcados"}
+            </span>
+          )}
+        </span>
+        {children.length > 1 && (
+          <button
+            type="button"
+            aria-pressed={todas}
+            onClick={() => {
+              for (const i of caixas()) i.checked = !todas;
+              contar();
+            }}
+            className={BOTAO_MINI}
+          >
+            {todas ? "Desmarcar todos" : "Marcar todos"}
+          </button>
+        )}
+      </legend>
+      <ul className={`flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border p-2 ${destaque ? "border-aviso/40" : "border-linha"}`}>
+        {children}
+      </ul>
+    </fieldset>
   );
 }
 
@@ -175,16 +195,37 @@ export function NovaSprint({
 }) {
   const [estado, acao, enviando] = useActionState(criarSprint, ESTADO_INICIAL);
   const [inicio, setInicio] = useState(estado.valores?.inicio ?? hoje);
+  const [fim, setFim] = useState(estado.valores?.fim ?? somarDias(hoje, duracao - 1));
+  // Fim antes de hoje: a Sprint já aconteceu. Criar por aqui deixaria uma Sprint "ativa" que já
+  // acabou, então o botão fica bloqueado e a tela aponta para Registrar Sprint anterior.
+  const jaPassou = Boolean(fim) && fim < hoje;
   return (
     <form action={acao} noValidate className="flex flex-wrap items-end gap-4 rounded-2xl border border-linha bg-painel p-4">
       <input type="hidden" name="projeto" value={projetoId} />
-      <h2 className="basis-full font-semibold">Nova Sprint {numero}</h2>
+      <div className="basis-full">
+        <h2 className="font-semibold">Nova Sprint {numero}</h2>
+        <p className="text-sm text-suave">
+          Só existe uma Sprint ativa por vez: ela vale até você encerrá-la, e só depois disso dá para criar a próxima.
+        </p>
+      </div>
       <CampoData nome="inicio" rotulo="Início" valor={estado.valores?.inicio ?? hoje} erro={estado.erros?.inicio} aoMudar={setInicio} />
-      <CampoData nome="fim" rotulo="Fim" valor={estado.valores?.fim ?? somarDias(hoje, duracao - 1)} erro={estado.erros?.fim} />
+      <CampoData
+        nome="fim"
+        rotulo="Fim"
+        valor={estado.valores?.fim ?? somarDias(hoje, duracao - 1)}
+        erro={estado.erros?.fim}
+        aoMudar={setFim}
+      />
       <CampoMeta valor={estado.valores?.meta ?? ""} erro={estado.erros?.meta} />
       <p className="basis-full text-xs text-suave">O fim já vem com a duração de Sprint do cadastro ({duracao} dias); pode mudar.</p>
       <ListaCartoes backlog={backlog} fora={fora} inicio={inicio} />
-      <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
+      {jaPassou && (
+        <p role="alert" className="basis-full rounded-xl border border-aviso/40 bg-aviso/10 px-4 py-2.5 text-sm">
+          Essa Sprint já terminou (o fim é antes de hoje). Para registrar uma Sprint que já aconteceu, use{" "}
+          <strong>Registrar Sprint anterior</strong>, logo abaixo: ela entra já encerrada e com os cartões concluídos nessas datas.
+        </p>
+      )}
+      <button aria-busy={enviando} type="submit" disabled={enviando || jaPassou} className={BOTAO_PRINCIPAL}>
         {enviando ? "Criando…" : "Criar Sprint"}
       </button>
       <Mensagens estado={estado} />
@@ -198,6 +239,7 @@ export function SprintAtiva({
   cartoes,
   backlog,
   fora,
+  hoje,
   podeGerir,
 }: {
   projetoId: string;
@@ -205,6 +247,7 @@ export function SprintAtiva({
   cartoes: Cartao[];
   backlog: Cartao[];
   fora: CandidatoFora[] | null;
+  hoje: string;
   // PO e SM editam, montam e encerram; o desenvolvedor só vê.
   podeGerir: boolean;
 }) {
@@ -230,7 +273,18 @@ export function SprintAtiva({
           <strong>{feitos}</strong> concluídos
         </p>
         {sprint.foraDoBacklog && <MarcaForaBacklog />}
+        <p className="mt-3 border-t border-linha pt-3 text-xs text-suave">
+          Esta é a Sprint ativa. Ela continua valendo até ser encerrada, mesmo depois da data de fim; a Sprint {sprint.numero + 1} só pode
+          ser criada depois disso.
+        </p>
       </section>
+
+      {sprint.fim < hoje && (
+        <p role="status" className="rounded-xl border border-aviso/40 bg-aviso/10 px-4 py-2.5 text-sm">
+          O prazo desta Sprint terminou em {formatarData(sprint.fim)}.{" "}
+          {podeGerir ? "Encerre-a no fim desta página para criar a próxima." : "O PO ou o SM precisa encerrá-la para criar a próxima."}
+        </p>
+      )}
 
       {podeGerir && (
         <>
@@ -258,12 +312,18 @@ export function SprintAtiva({
             <Mensagens estado={puxe} />
           </form>
 
-          <form action={encerrar} className="flex flex-wrap items-center gap-3">
+          <form action={encerrar} className="flex flex-wrap items-center gap-3 rounded-2xl border border-linha bg-painel p-4">
             <input type="hidden" name="sprint" value={sprint.id} />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold">Encerrar a Sprint {sprint.numero}</h3>
+              <p className="text-sm text-suave">
+                Só pode haver uma Sprint ativa por vez. Encerre esta quando ela terminar para criar a Sprint {sprint.numero + 1}. Os cartões
+                não concluídos continuam onde estão.
+              </p>
+            </div>
             <button aria-busy={encerrando} type="submit" disabled={encerrando} className={BOTAO_SECUNDARIO}>
               {encerrando ? "Encerrando…" : "Encerrar Sprint"}
             </button>
-            <span className="text-sm text-suave">Só pode haver uma Sprint ativa por vez. Encerre esta para criar a próxima.</span>
             <Mensagens estado={fim} />
           </form>
         </>

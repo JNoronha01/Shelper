@@ -157,6 +157,7 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
                   cartoes={cartoes}
                   backlog={backlog}
                   fora={fora}
+                  hoje={diaLocal(agora)}
                   podeGerir={pode(funcao, "gerirSprint")}
                 />
               ) : pode(funcao, "gerirSprint") ? (
