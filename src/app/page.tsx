@@ -29,6 +29,10 @@ const PERGUNTAS = [
     "O Product Owner abre a aba Time do projeto e gera um link de convite. Quem abrir o link e entrar na conta já cai no projeto, como Desenvolvedor; o PO pode mudar o papel depois. O link tem prazo de validade e pode ser cancelado.",
   ],
   [
+    "Posso ter duas Sprints ao mesmo tempo?",
+    "Não. Como no Scrum, só existe uma Sprint ativa por vez: para começar a próxima, encerre a atual na aba Sprint. Sprints que já aconteceram antes de usar o Shelper entram por Registrar Sprint anterior, já encerradas.",
+  ],
+  [
     "Como as métricas são calculadas?",
     "Cada vez que um cartão muda de coluna, o Shelper grava um evento com a hora do servidor. Esse histórico não pode ser editado nem apagado, e é dele que saem Lead Time, Cycle Time, Throughput, WIP, Velocity e Burndown.",
   ],
