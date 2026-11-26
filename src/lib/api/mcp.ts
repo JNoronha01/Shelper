@@ -9,7 +9,7 @@ import { ErroApi } from "./visoes";
 //
 // Só JSON-RPC 2.0 por POST, com resposta em JSON (o protocolo permite não usar streaming).
 
-export const VERSOES = ["2025-06-18", "2025-03-26", "2024-11-05"];
+export const VERSOES = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
 type Ferramenta = {
   name: string;
@@ -224,6 +224,8 @@ export async function responderMcp(req: Request, chave: string | null): Promise<
     return new Response("Este servidor MCP aceita só POST (Streamable HTTP, sem SSE).", { status: 405, headers: { Allow: "POST" } });
   }
   if (!chave) {
+    // Registro sem a chave (nunca a chave em si), para entender falhas de conexão nos logs da Vercel.
+    console.warn("MCP sem chave", { autorizacao: req.headers.has("authorization"), xApiKey: req.headers.has("x-api-key") });
     return json(
       { jsonrpc: "2.0", id: null, error: { code: -32001, message: "Envie a chave do Shelper (Authorization: Bearer shp_...)." } },
       401,
@@ -244,6 +246,7 @@ export async function responderMcp(req: Request, chave: string | null): Promise<
       await operacoes.projeto(chave);
     } catch (e) {
       if (e instanceof ErroApi && e.status === 401) {
+        console.warn("MCP com chave recusada", { motivo: e.message });
         return json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: e.message } }, 401);
       }
     }

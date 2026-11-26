@@ -9,10 +9,14 @@ import { ErroApi, listarCartoes, metricasDoProjeto, resumoDoProjeto, verCartao, 
 
 export const FORMATO_CHAVE = /^shp_[0-9a-f]{64}$/;
 
-// "Authorization: Bearer shp_..." ou "X-Api-Key: shp_..."
+// "Authorization: Bearer shp_...", "Authorization: shp_..." (sem o Bearer) ou "X-Api-Key: shp_...".
+// Aceita as três formas porque cada IA pede o cabeçalho de um jeito e é fácil esquecer o "Bearer".
 export function chaveDoCabecalho(cabecalhos: Headers): string | null {
-  const bearer = cabecalhos.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
-  return bearer ?? cabecalhos.get("x-api-key")?.trim() ?? null;
+  for (const valor of [cabecalhos.get("authorization"), cabecalhos.get("x-api-key")]) {
+    const chave = valor?.trim().replace(/^Bearer\s+/i, "").trim();
+    if (chave) return chave;
+  }
+  return null;
 }
 
 function cliente() {

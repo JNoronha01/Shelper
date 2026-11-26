@@ -94,10 +94,15 @@ export default function PaginaApi() {
   --header "Authorization: Bearer shp_SUA_CHAVE"`}</Codigo>
           <h3 className="mt-2 font-semibold">claude.ai e Claude Desktop</h3>
           <p className="text-sm text-suave">
-            Configurações → Conectores → Adicionar conector personalizado, com o endereço abaixo. Ele já leva a chave, porque esses
-            conectores não deixam configurar cabeçalho: trate o endereço como senha.
+            Configurações → Conectores → Adicionar conector personalizado. Em Autenticação, escolha Sem login; em Cabeçalhos de requisição,
+            adicione o cabeçalho com a chave. Assim o endereço sozinho não dá acesso a nada.
           </p>
-          <Codigo>{`${BASE}/api/mcp/shp_SUA_CHAVE`}</Codigo>
+          <Codigo>{`Endereço:  ${BASE}/api/mcp
+Cabeçalho: Authorization
+Valor:     Bearer shp_SUA_CHAVE`}</Codigo>
+          <p className="text-sm text-suave">
+            Se o seu cliente não aceitar cabeçalho, use o endereço com a chave no fim (trate como senha): {BASE}/api/mcp/shp_SUA_CHAVE
+          </p>
           <h3 className="mt-2 font-semibold">Cursor e outros clientes MCP</h3>
           <Codigo>{`{
   "mcpServers": {
