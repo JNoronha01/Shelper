@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Telas baixas (notebook): menos espaço vertical gasto em volta do board. */
+@custom-variant baixa (@media (max-height: 860px));
+
 /*
   Paleta "Grafite e laranja" (só tema escuro).
   O laranja é a única cor viva: botão principal, aba ativa, foco e o que está selecionado.

@@ -42,7 +42,7 @@ import { ConteudoAba, ProvedorAbas } from "./navegacao-abas";
 import { NomeDoProjeto, TransicaoPagina } from "@/components/transicao-pagina";
 import { TituloCarregando } from "../../projeto-aberto";
 import { Board } from "./board";
-import { FaixaSprint } from "./faixa-sprint";
+import { AvisoCadastro, FaixaSprint } from "./faixa-sprint";
 import { Historico } from "./historico";
 import { Graficos, type DadosGraficos } from "./graficos";
 import { Metricas } from "./metricas";
@@ -81,8 +81,8 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
 
   return (
     <>
-      <div className="flex shrink-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex shrink-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 flex-col gap-1 md:flex-row md:items-baseline md:gap-4">
           <div className="flex min-w-0 items-center gap-2">
             <Link
               href="/painel"
@@ -102,35 +102,38 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
             {funcao === "po" && " (gestor)"}, {membros} {membros === 1 ? "integrante" : "integrantes"}
           </p>
         </div>
-        <dl className="flex divide-x divide-linha rounded-xl border border-linha bg-painel">
-          {[
-            ["Cartões", String(cartoes.length)],
-            ["Concluídos", String(concluidos.length)],
-            ["Pontos feitos", `${pontosConcluidos}/${pontosTotais}`],
-            ["Horas usadas", `${formatarNumero(horas.usadas)}/${projeto.horasContratadas ?? "?"} h`],
-          ].map(([rotulo, valor]) => (
-            <div key={rotulo} className="flex flex-col px-4 py-1.5">
-              <dt className="text-xs text-suave">{rotulo}</dt>
-              <dd className="text-base font-semibold tabular-nums">{valor}</dd>
-            </div>
-          ))}
-        </dl>
       </div>
 
-      <ProvedorAbas projetoId={projeto.id} atual={aba} visiveis={visiveis}>
+      <ProvedorAbas
+        projetoId={projeto.id}
+        atual={aba}
+        visiveis={visiveis}
+        lado={
+          <dl className="flex w-fit shrink-0 divide-x divide-linha rounded-xl border border-linha bg-painel">
+            {[
+              ["Cartões", String(cartoes.length)],
+              ["Concluídos", String(concluidos.length)],
+              ["Pontos feitos", `${pontosConcluidos}/${pontosTotais}`],
+              ["Horas usadas", `${formatarNumero(horas.usadas)}/${projeto.horasContratadas ?? "?"} h`],
+            ].map(([rotulo, valor]) => (
+              <div key={rotulo} className="flex flex-col px-4 py-1.5">
+                <dt className="text-xs text-suave">{rotulo}</dt>
+                <dd className="text-base font-semibold tabular-nums">{valor}</dd>
+              </div>
+            ))}
+          </dl>
+        }
+      >
         <ConteudoAba telaCheia={aba === "board"}>
           {aba === "board" && (
             <div className="flex flex-col gap-3 md:min-h-0 md:flex-1">
-              <FaixaSprint projetoId={projeto.id} sprint={ativa} cartoes={cartoes} hoje={diaLocal(agora)} />
-              {funcao === "po" && !projeto.cadastroCompleto && (
-                <p className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-sm">
-                  <span>Falta completar o cadastro do projeto (horas, prazo e metas). Sem ele, as métricas ficam sem referência.</span>
-                  <Link href={`/painel/projetos/${projeto.id}?aba=projeto`} className="font-medium text-laranja-claro hover:text-laranja">
-                    Completar cadastro
-                  </Link>
-                </p>
-              )}
               <Board
+                extras={
+                  <>
+                    <FaixaSprint projetoId={projeto.id} sprint={ativa} cartoes={cartoes} hoje={diaLocal(agora)} />
+                    {funcao === "po" && !projeto.cadastroCompleto && <AvisoCadastro projetoId={projeto.id} />}
+                  </>
+                }
                 projetoId={projeto.id}
                 limites={limites}
                 cartoes={cartoes}
@@ -146,7 +149,13 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
           {aba === "sprint" && (
             <div className="flex flex-col gap-6">
               {ativa ? (
-                <SprintAtiva projetoId={projeto.id} sprint={ativa} cartoes={cartoes} backlog={backlog} podeGerir={pode(funcao, "gerirSprint")} />
+                <SprintAtiva
+                  projetoId={projeto.id}
+                  sprint={ativa}
+                  cartoes={cartoes}
+                  backlog={backlog}
+                  podeGerir={pode(funcao, "gerirSprint")}
+                />
               ) : pode(funcao, "gerirSprint") ? (
                 <NovaSprint
                   projetoId={projeto.id}
@@ -201,7 +210,9 @@ async function ConteudoProjeto({ params, searchParams }: Pick<Props, "params" | 
             />
           )}
           {aba === "time" && <AbaTime projetoId={projeto.id} funcao={funcao} meuId={usuario.id} agora={agora} />}
-          {aba === "projeto" && <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} chaves={chaves} />}
+          {aba === "projeto" && (
+            <AbaProjeto projeto={projeto} metas={metas} podeEditar={pode(funcao, "editarCadastro")} horas={horas} chaves={chaves} />
+          )}
         </ConteudoAba>
       </ProvedorAbas>
     </>
@@ -394,7 +405,7 @@ function CarregandoBoard() {
 export default function PaginaProjeto({ params, searchParams }: Props) {
   return (
     <TransicaoPagina>
-      <main className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-5 md:has-[[data-tela-cheia]]:h-[calc(100dvh-3.5rem)] md:has-[[data-tela-cheia]]:flex-none md:has-[[data-tela-cheia]]:overflow-hidden md:has-[[data-tela-cheia]]:py-4">
+      <main className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-5 md:has-[[data-tela-cheia]]:h-[calc(100dvh-3.5rem)] md:has-[[data-tela-cheia]]:flex-none md:has-[[data-tela-cheia]]:overflow-hidden md:has-[[data-tela-cheia]]:py-4 md:has-[[data-tela-cheia]]:baixa:gap-3 md:has-[[data-tela-cheia]]:baixa:py-3">
         {/* Na aba Board (telas médias para cima) a página não rola: tudo cabe na tela e só as colunas rolam. */}
         <Suspense fallback={<CarregandoBoard />}>
           <ConteudoProjeto params={params} searchParams={searchParams} />
