@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useActionState } from "react";
 import { entrar } from "../acoes";
@@ -16,10 +17,12 @@ export function FormularioEntrada() {
   const parametros = useSearchParams();
   const avisoDaUrl = AVISOS_DA_URL[parametros.get("erro") ?? ""];
   const mensagem = estado.mensagem ?? avisoDaUrl;
+  const saiuDeTodos = parametros.get("saiu") === "todos" && !estado.mensagem;
 
   return (
     <form action={acao} className="flex flex-col gap-4" noValidate>
       {mensagem && <Aviso tipo="erro">{mensagem}</Aviso>}
+      {saiuDeTodos && <Aviso tipo="sucesso">Você saiu de todos os aparelhos. Entre de novo para continuar.</Aviso>}
       <input type="hidden" name="proximo" value={parametros.get("proximo") ?? ""} />
       <Campo
         name="email"
@@ -38,6 +41,9 @@ export function FormularioEntrada() {
         required
         erro={estado.erros?.senha}
       />
+      <Link href="/esqueci-senha" className="-mt-2 self-end text-sm text-suave underline-offset-4 hover:text-texto hover:underline">
+        Esqueci minha senha
+      </Link>
       <button aria-busy={enviando} type="submit" disabled={enviando} className={BOTAO_PRINCIPAL}>
         {enviando ? "Entrando…" : "Entrar"}
       </button>

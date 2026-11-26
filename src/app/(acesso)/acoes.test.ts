@@ -4,10 +4,14 @@ const auth = {
   signUp: vi.fn(),
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
+  resetPasswordForEmail: vi.fn(),
+  getClaims: vi.fn(),
+  updateUser: vi.fn(),
 };
+const rpc = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
-  criarClienteServidor: async () => ({ auth }),
+  criarClienteServidor: async () => ({ auth, rpc }),
 }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ origin: "https://shelper.test" }),
@@ -18,7 +22,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const { cadastrar, entrar, sair } = await import("./acoes");
+const { cadastrar, entrar, pedirNovaSenha, redefinirSenha, sair, sairDeTodos } = await import("./acoes");
 
 function formulario(campos: Record<string, string>): FormData {
   const form = new FormData();
@@ -29,12 +33,13 @@ function formulario(campos: Record<string, string>): FormData {
 const cadastro = {
   nome: "Ana Souza",
   email: "ana@exemplo.com",
-  senha: "segredo123",
-  confirmacao: "segredo123",
+  senha: "Segredo#123",
+  confirmacao: "Segredo#123",
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  rpc.mockImplementation(async (nome: string) => ({ data: nome === "login_bloqueado" ? 0 : nome === "login_falhou" ? { restantes: 4, segundos: 0 } : null, error: null }));
 });
 
 describe("cadastrar", () => {
@@ -46,7 +51,7 @@ describe("cadastrar", () => {
     await expect(cadastrar({}, formulario(cadastro))).rejects.toThrow("REDIRECT:/painel");
     expect(auth.signUp).toHaveBeenCalledWith({
       email: "ana@exemplo.com",
-      password: "segredo123",
+      password: "Segredo#123",
       options: {
         data: { nome: "Ana Souza" },
         emailRedirectTo: "https://shelper.test/auth/confirmar",
@@ -122,7 +127,66 @@ describe("entrar", () => {
   });
 });
 
+describe("bloqueio por tentativas", () => {
+  const erroSenha = { data: {}, error: { code: "invalid_credentials", status: 400 } };
+
+  it("não confere a senha enquanto o e-mail está bloqueado", async () => {
+    rpc.mockResolvedValueOnce({ data: 600, error: null });
+    const estado = await entrar({}, formulario({ email: "ana@exemplo.com", senha: "x" }));
+    expect(estado.mensagem).toMatch(/bloqueado por mais 10 minutos/);
+    expect(auth.signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  it("avisa quando faltam poucas tentativas e quando bloqueia", async () => {
+    auth.signInWithPassword.mockResolvedValue(erroSenha);
+    rpc.mockResolvedValueOnce({ data: 0, error: null }).mockResolvedValueOnce({ data: { restantes: 2, segundos: 0 }, error: null });
+    expect((await entrar({}, formulario({ email: "ana@exemplo.com", senha: "x" }))).mensagem).toBe(
+      "E-mail ou senha incorretos. Mais 2 tentativas antes de bloquear por 15 minutos.",
+    );
+    rpc.mockResolvedValueOnce({ data: 0, error: null }).mockResolvedValueOnce({ data: { restantes: 0, segundos: 900 }, error: null });
+    expect((await entrar({}, formulario({ email: "ana@exemplo.com", senha: "x" }))).mensagem).toMatch(/ficou bloqueado por 15 minutos/);
+  });
+
+  it("zera a contagem quando entra certo", async () => {
+    auth.signInWithPassword.mockResolvedValue({ data: {}, error: null });
+    await expect(entrar({}, formulario({ email: "ana@exemplo.com", senha: "Certa#123" }))).rejects.toThrow("REDIRECT:/painel");
+    expect(rpc).toHaveBeenCalledWith("login_ok");
+  });
+});
+
+describe("esqueci minha senha", () => {
+  it("manda o link e responde igual exista ou não a conta", async () => {
+    auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+    const estado = await pedirNovaSenha({}, formulario({ email: "Ana@Exemplo.com" }));
+    expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("ana@exemplo.com", {
+      redirectTo: "https://shelper.test/auth/confirmar?proximo=/painel/nova-senha",
+    });
+    expect(estado.sucesso).toMatch(/Se existir uma conta com ana@exemplo.com/);
+  });
+
+  it("só troca a senha numa sessão aberta pelo link", async () => {
+    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "password", timestamp: Date.now() / 1000 }] } } });
+    const recusado = await redefinirSenha({}, formulario({ senha: "Nova#Senha1", confirmacao: "Nova#Senha1" }));
+    expect(recusado.mensagem).toMatch(/expirou/);
+    expect(auth.updateUser).not.toHaveBeenCalled();
+
+    auth.getClaims.mockResolvedValue({ data: { claims: { amr: [{ method: "otp", timestamp: Date.now() / 1000 - 30 }] } } });
+    auth.updateUser.mockResolvedValue({ data: {}, error: null });
+    auth.signOut.mockResolvedValue({ error: null });
+    const ok = await redefinirSenha({}, formulario({ senha: "Nova#Senha1", confirmacao: "Nova#Senha1" }));
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: "Nova#Senha1" });
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: "others" });
+    expect(ok.sucesso).toMatch(/Senha alterada/);
+  });
+});
+
 describe("sair", () => {
+  it("sair de todos encerra as sessões em todos os aparelhos", async () => {
+    auth.signOut.mockResolvedValue({ error: null });
+    await expect(sairDeTodos()).rejects.toThrow("REDIRECT:/entrar?saiu=todos");
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: "global" });
+  });
+
   it("encerra a sessão e volta para a entrada", async () => {
     auth.signOut.mockResolvedValue({ error: null });
     await expect(sair()).rejects.toThrow("REDIRECT:/entrar");

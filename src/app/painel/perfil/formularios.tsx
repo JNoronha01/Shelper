@@ -5,7 +5,8 @@ import { Aviso, Campo } from "@/app/(acesso)/campo";
 import { Avatar } from "@/components/avatar";
 import { useAvisar } from "@/components/avisos";
 import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, BOTAO_TEXTO } from "@/components/botoes";
-import { SENHA_MINIMO } from "@/lib/auth/validacao";
+import { CampoSenhaForte } from "@/app/(acesso)/campo-senha";
+import { sairDeTodos } from "@/app/(acesso)/acoes";
 import { ESTADO_INICIAL } from "../estado";
 import { removerFoto, salvarFoto, salvarNome, trocarEmail, trocarSenha } from "./acoes";
 
@@ -159,10 +160,10 @@ export function TrocarEmail({ email }: { email: string }) {
 export function TrocarSenha() {
   const [estado, acao, enviando] = useActionState(trocarSenha, ESTADO_INICIAL);
   return (
-    <Secao id="titulo-senha" titulo="Senha" descricao={`Use pelo menos ${SENHA_MINIMO} caracteres.`}>
+    <Secao id="titulo-senha" titulo="Senha" descricao="A senha nova segue as mesmas regras do cadastro.">
       <form key={estado.versao ?? 0} action={acao} noValidate className="flex flex-col gap-3">
         <Campo name="atual" type="password" rotulo="Senha atual" erro={estado.erros?.atual} autoComplete="current-password" required />
-        <Campo name="nova" type="password" rotulo="Nova senha" erro={estado.erros?.nova} autoComplete="new-password" required />
+        <CampoSenhaForte name="nova" rotulo="Nova senha" erro={estado.erros?.nova} />
         <Campo
           name="confirmacao"
           type="password"
@@ -179,6 +180,44 @@ export function TrocarSenha() {
           </button>
         </div>
       </form>
+    </Secao>
+  );
+}
+
+// Sair de todos os aparelhos: encerra a sessão em todos os navegadores e celulares onde a conta
+// está aberta (inclusive este). Útil se a pessoa esqueceu a conta aberta num computador da faculdade.
+export function SairDeTodos() {
+  const [confirmando, setConfirmando] = useState(false);
+  const [saindo, iniciar] = useTransition();
+  return (
+    <Secao
+      id="titulo-aparelhos"
+      titulo="Aparelhos conectados"
+      descricao="Esqueceu a conta aberta em outro computador ou celular? Saia de todos de uma vez. Você também sai deste e entra de novo depois."
+    >
+      {!confirmando ? (
+        <div className="flex justify-end">
+          <button type="button" className={BOTAO_SECUNDARIO} onClick={() => setConfirmando(true)}>
+            Sair de todos os aparelhos
+          </button>
+        </div>
+      ) : (
+        <div className="surgir flex flex-wrap items-center justify-end gap-2">
+          <span className="mr-auto text-sm">Encerrar a sessão em todos os aparelhos agora?</span>
+          <button type="button" className={BOTAO_TEXTO} disabled={saindo} onClick={() => setConfirmando(false)}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            aria-busy={saindo}
+            disabled={saindo}
+            className={`${BOTAO_SECUNDARIO} !border-perigo/60 !text-perigo hover:!bg-perigo/10`}
+            onClick={() => iniciar(() => sairDeTodos())}
+          >
+            {saindo ? "Saindo…" : "Sair de todos"}
+          </button>
+        </div>
+      )}
     </Secao>
   );
 }
