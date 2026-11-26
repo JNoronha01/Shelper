@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metas, Sprint } from "@/lib/board/dados";
 import type { Faixa } from "@/lib/metricas/calculo";
 import type { PainelMetricas } from "@/lib/metricas/painel";
+import { NumeroAnimado } from "@/components/numero-animado";
 import { FiltroPessoa } from "./metricas-filtro";
 
 const ESTILO_FAIXA: Record<Faixa, { texto: string; classe: string }> = {
@@ -30,7 +31,7 @@ function Cartao({
     <div className="flex flex-col gap-1 rounded-2xl border border-linha bg-painel p-4">
       <dt className="text-sm text-suave">{titulo}</dt>
       <dd className="flex flex-wrap items-baseline gap-2">
-        <span className="text-4xl font-semibold tracking-tight tabular-nums">{valor}</span>
+        <NumeroAnimado texto={valor} className="text-4xl font-semibold tracking-tight tabular-nums" />
         {unidade && <span className="text-sm text-suave">{unidade}</span>}
         {faixa && (
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTILO_FAIXA[faixa].classe}`}>{ESTILO_FAIXA[faixa].texto}</span>
