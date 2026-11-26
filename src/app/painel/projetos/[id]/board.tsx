@@ -201,7 +201,9 @@ export function Board({
                 </header>
 
                 {/* Cada coluna rola sozinha: com muitos cartões, a página não cresce sem fim. */}
-                <ul className="relative -mr-1.5 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1.5 [scrollbar-gutter:stable]">
+                {/* Folga de 4px em cima e dos lados: a lista rola (overflow), e sem ela o cartão que sobe no
+                    hover e o contorno de foco ficavam cortados no primeiro cartão. */}
+                <ul className="relative -mt-1 -mr-2.5 -ml-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pt-1 pr-2.5 pb-1 pl-1 [scrollbar-gutter:stable]">
                   {daColuna.map((cartao) => (
                     // Cada cartão tem nome próprio na View Transition: ao mudar de coluna ele desliza
                     // até o lugar novo e os outros cartões abrem e fecham espaço (CSS em globals.css).
