@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState, ViewTransition, type DragEvent, type ReactNode } from "react";
+import { addTransitionType, startTransition, useEffect, useRef, useState, ViewTransition, type DragEvent, type ReactNode } from "react";
 import { useAvisar } from "@/components/avisos";
 import { Avatar } from "@/components/avatar";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
@@ -88,13 +88,21 @@ export function Board({
   const [rodada, setRodada] = useState(0);
   // A volta sai do escopo da ação do servidor (setTimeout) para também ser animada.
   const colocar = (id: string, coluna: Coluna) =>
-    window.setTimeout(() => startTransition(() => setAjustes((a) => ({ ...a, [id]: coluna }))), 0);
+    window.setTimeout(
+      () =>
+        startTransition(() => {
+          addTransitionType("mover");
+          setAjustes((a) => ({ ...a, [id]: coluna }));
+        }),
+      0,
+    );
 
   function mover(cartao: Cartao, para: Coluna, confirmarWip = false) {
     if (cartao.coluna === para) return;
     fila.current.push({ cartao, de: cartao.coluna, para, confirmarWip });
     setGravando((n) => n + 1);
     startTransition(() => {
+      addTransitionType("mover");
       setAjustes((a) => ({ ...a, [cartao.id]: para }));
       setRodada((r) => r + 1);
     });
@@ -210,8 +218,11 @@ export function Board({
                     <ViewTransition
                       key={cartao.id}
                       name={`cartao-${cartao.id}`}
-                      share="cartao"
-                      update="cartao"
+                      // Só anima quando um cartão muda de coluna (tipo "mover"). Sem isso, qualquer
+                      // atualização do cartão (marcar o checklist com o detalhe aberto) também animava,
+                      // e a animação do navegador aparece por cima do pop-up.
+                      share={{ mover: "cartao", default: "none" }}
+                      update={{ mover: "cartao", default: "none" }}
                       enter="cartao-novo"
                       default="none"
                     >
