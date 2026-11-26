@@ -517,3 +517,24 @@ export async function registrarSprintAnterior(_anterior: EstadoAcao, form: FormD
     versao: Date.now(),
   };
 }
+
+// ---------------------------------------------------------------- Chaves da API (conectar IAs)
+
+export type ResultadoChave = { ok: true; chave: string } | { ok: false; mensagem: string };
+
+export async function criarChaveApi(projeto: string, nome: string, dias: number | null): Promise<ResultadoChave> {
+  if (!eUuid(projeto)) return { ok: false, mensagem: SEM_ACESSO };
+  const n = nome.trim();
+  if (!n || n.length > 60) return { ok: false, mensagem: 'Dê um nome à chave (até 60 caracteres), por exemplo "Claude do Jorge".' };
+  if (dias !== null && dias !== 30 && dias !== 90) return { ok: false, mensagem: "Validade inválida." };
+  const supabase = await clienteComSessao();
+  const { data, error } = await supabase.rpc("criar_chave_api", { p_projeto: projeto, p_nome: n, p_dias: dias });
+  if (error) return { ok: false, mensagem: mensagemDoBanco(error) };
+  refresh();
+  return { ok: true, chave: data as string };
+}
+
+export async function revogarChaveApi(chave: string): Promise<ResultadoSimples> {
+  if (!eUuid(chave)) return { ok: false, mensagem: SEM_ACESSO };
+  return chamar("revogar_chave_api", { p_chave: chave });
+}
