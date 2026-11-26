@@ -11,6 +11,7 @@ const GRUPOS = [
       ["Métricas", "/#metricas"],
       ["Exemplo de dashboard", "/#dashboard"],
       ["Perguntas frequentes", "/#perguntas"],
+      ["Guia passo a passo", "/guia"],
     ],
   },
   {

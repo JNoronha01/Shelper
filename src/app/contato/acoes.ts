@@ -1,6 +1,7 @@
 "use server";
 
 import { validarContato } from "@/lib/contato/validacao";
+import { explicarErroDoBanco } from "@/lib/erros";
 import { criarClienteServidor } from "@/lib/supabase/server";
 
 export type EstadoContato = {
@@ -24,9 +25,8 @@ export async function enviarContato(_anterior: EstadoContato, form: FormData): P
     p_mensagem: v.dados.mensagem,
   });
   if (error) {
-    if (error.code === "22023") return { mensagem: error.message, valores };
     console.error("Falha ao salvar contato", { code: error.code });
-    return { mensagem: "Não foi possível enviar agora. Tente de novo em instantes.", valores };
+    return { mensagem: explicarErroDoBanco(error), valores };
   }
   return { sucesso: `Mensagem enviada. Vamos responder no e-mail ${v.dados.email}.` };
 }

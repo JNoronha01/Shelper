@@ -23,6 +23,9 @@ async function ContaDoUsuario() {
         <Avatar nome={nome} foto={perfil?.foto} />
         <span className="hidden truncate text-texto sm:inline">{nome}</span>
       </Link>
+      <Link href="/guia" target="_blank" className={`${BOTAO_TEXTO} !text-sm hidden sm:inline-flex`}>
+        Guia<span className="sr-only"> do Shelper (abre em outra aba)</span>
+      </Link>
       <Link href="/contato" className={`${BOTAO_TEXTO} !text-sm hidden sm:inline-flex`}>
         Contato
       </Link>

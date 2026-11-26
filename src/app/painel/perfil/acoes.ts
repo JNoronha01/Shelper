@@ -5,13 +5,12 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROTA_ENTRADA } from "@/lib/auth/rotas";
 import { validarFoto, validarNomePerfil, validarTrocaDeEmail, validarTrocaDeSenha } from "@/lib/auth/validacao";
+import { explicarErroDeAuth, explicarErroDoBanco } from "@/lib/erros";
 import { criarClienteServidor } from "@/lib/supabase/server";
 import type { EstadoAcao, ResultadoSimples } from "../estado";
 
 // Perfil do próprio usuário. Nome e foto ficam na tabela perfis (o time vê);
 // e-mail e senha são do Supabase Auth. Tudo passa pelo servidor, com a sessão lida de novo.
-
-const FALHA = "Não foi possível salvar agora. Tente novamente em instantes.";
 
 async function sessao() {
   const supabase = await criarClienteServidor();
@@ -33,7 +32,7 @@ export async function salvarNome(_anterior: EstadoAcao, form: FormData): Promise
   const { supabase, user } = await sessao();
   const atual = await perfilAtual(supabase, user.id);
   const { error } = await supabase.rpc("salvar_perfil", { p_nome: r.dados.nome, p_foto: atual?.foto ?? null });
-  if (error) return { mensagem: error.code === "22023" ? error.message : FALHA };
+  if (error) return { mensagem: explicarErroDoBanco(error) };
   // O nome também fica nos metadados da conta (usado como reserva no cabeçalho).
   await supabase.auth.updateUser({ data: { nome: r.dados.nome } });
   refresh();
@@ -42,7 +41,7 @@ export async function salvarNome(_anterior: EstadoAcao, form: FormData): Promise
 
 export async function salvarFoto(form: FormData): Promise<ResultadoSimples> {
   const r = validarFoto(form.get("foto"));
-  if (!r.ok) return { ok: false, mensagem: r.erros.foto ?? FALHA };
+  if (!r.ok) return { ok: false, mensagem: r.erros.foto ?? "Escolha uma imagem JPG, PNG ou WebP de até 1 MB." };
   const { supabase, user } = await sessao();
   const atual = await perfilAtual(supabase, user.id);
   const extensao = r.dados.arquivo.type.split("/")[1];
@@ -51,12 +50,15 @@ export async function salvarFoto(form: FormData): Promise<ResultadoSimples> {
   const envio = await supabase.storage.from("avatares").upload(caminho, r.dados.arquivo, { contentType: r.dados.arquivo.type });
   if (envio.error) {
     console.error("Falha ao enviar foto", { erro: envio.error.message });
-    return { ok: false, mensagem: FALHA };
+    return {
+      ok: false,
+      mensagem: `Não foi possível enviar a foto: "${envio.error.message}". Tente uma imagem menor (até 1 MB, JPG, PNG ou WebP).`,
+    };
   }
   const { error } = await supabase.rpc("salvar_perfil", { p_nome: atual?.nome ?? "", p_foto: caminho });
   if (error) {
     await supabase.storage.from("avatares").remove([caminho]);
-    return { ok: false, mensagem: error.code === "22023" ? error.message : FALHA };
+    return { ok: false, mensagem: explicarErroDoBanco(error) };
   }
   if (atual?.foto) await supabase.storage.from("avatares").remove([atual.foto]);
   refresh();
@@ -68,7 +70,7 @@ export async function removerFoto(): Promise<ResultadoSimples> {
   const atual = await perfilAtual(supabase, user.id);
   if (!atual?.foto) return { ok: true };
   const { error } = await supabase.rpc("salvar_perfil", { p_nome: atual.nome, p_foto: null });
-  if (error) return { ok: false, mensagem: FALHA };
+  if (error) return { ok: false, mensagem: explicarErroDoBanco(error) };
   await supabase.storage.from("avatares").remove([atual.foto]);
   refresh();
   return { ok: true };
@@ -85,7 +87,7 @@ export async function trocarSenha(_anterior: EstadoAcao, form: FormData): Promis
   if (error) {
     if (error.code === "weak_password") return { erros: { nova: "Essa senha é fraca. Use uma mais longa e difícil de adivinhar." } };
     if (error.code === "same_password") return { erros: { nova: "A nova senha precisa ser diferente da atual." } };
-    return { mensagem: FALHA };
+    return { mensagem: explicarErroDeAuth(error) };
   }
   return { sucesso: "Senha alterada.", versao: Date.now() };
 }
@@ -105,7 +107,7 @@ export async function trocarEmail(_anterior: EstadoAcao, form: FormData): Promis
     if (error.code === "email_exists")
       return { erros: { email: "Esse e-mail já tem uma conta no Shelper." }, valores: { email: r.dados.email } };
     if (error.code === "over_email_send_rate_limit") return { mensagem: "Muitas tentativas. Espere alguns minutos e tente de novo." };
-    return { mensagem: FALHA };
+    return { mensagem: explicarErroDeAuth(error) };
   }
   // O Supabase só troca depois da confirmação pelo link enviado ao e-mail.
   // O gatilho no banco atualiza perfis.email quando a troca acontecer.
