@@ -8,7 +8,7 @@ import { BOTAO_PRINCIPAL, BOTAO_SECUNDARIO, BOTAO_TEXTO } from "@/components/bot
 import { CampoSenhaForte } from "@/app/(acesso)/campo-senha";
 import { sairDeTodos } from "@/app/(acesso)/acoes";
 import { ESTADO_INICIAL } from "../estado";
-import { removerFoto, salvarFoto, salvarNome, trocarEmail, trocarSenha } from "./acoes";
+import { refazerTour, removerFoto, salvarFoto, salvarNome, trocarEmail, trocarSenha } from "./acoes";
 
 function Secao({ id, titulo, descricao, children }: { id: string; titulo: string; descricao: string; children: ReactNode }) {
   return (
@@ -85,7 +85,13 @@ export function FotoENome({ nome, foto }: { nome: string; foto: string | null })
         </div>
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-2">
-            <button aria-busy={enviando} type="button" className={BOTAO_SECUNDARIO} disabled={enviando} onClick={() => entrada.current?.click()}>
+            <button
+              aria-busy={enviando}
+              type="button"
+              className={BOTAO_SECUNDARIO}
+              disabled={enviando}
+              onClick={() => entrada.current?.click()}
+            >
               {enviando ? "Enviando…" : foto ? "Trocar foto" : "Enviar foto"}
             </button>
             {foto && (
@@ -218,6 +224,38 @@ export function SairDeTodos() {
           </button>
         </div>
       )}
+    </Secao>
+  );
+}
+
+// Refazer o tour de primeiro acesso: zera os dois tours e leva ao painel, onde o primeiro começa.
+export function RefazerTour() {
+  const [indo, iniciar] = useTransition();
+  const [erro, setErro] = useState<string | null>(null);
+  return (
+    <Secao
+      id="titulo-tour"
+      titulo="Tour do Shelper"
+      descricao="Os balões que explicam o painel e o board. Eles voltam a aparecer: primeiro em Meus projetos e depois no primeiro projeto que você abrir."
+    >
+      <div className="flex justify-end">
+        <button
+          type="button"
+          aria-busy={indo}
+          disabled={indo}
+          className={BOTAO_SECUNDARIO}
+          onClick={() =>
+            iniciar(async () => {
+              setErro(null);
+              const r = await refazerTour();
+              if (r && !r.ok) setErro(r.mensagem ?? null);
+            })
+          }
+        >
+          {indo ? "Preparando…" : "Refazer o tour"}
+        </button>
+      </div>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
     </Secao>
   );
 }

@@ -16,7 +16,12 @@ export function NovoProjeto({ destaque = false }: { destaque?: boolean }) {
   const [aberto, setAberto] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setAberto(true)} className={destaque ? BOTAO_PRINCIPAL : BOTAO_SECUNDARIO}>
+      <button
+        type="button"
+        data-tour={destaque ? "novo-projeto" : undefined}
+        onClick={() => setAberto(true)}
+        className={destaque ? BOTAO_PRINCIPAL : BOTAO_SECUNDARIO}
+      >
         <span aria-hidden="true">+</span> Novo projeto
       </button>
       <Modal aberto={aberto} onFechar={() => setAberto(false)} titulo="Novo projeto" largura="max-w-2xl">
@@ -33,8 +38,8 @@ function FormularioProjeto({ onCancelar }: { onCancelar: () => void }) {
     <form action={acao} className="flex flex-col gap-4" noValidate>
       {estado.mensagem && <Aviso tipo="erro">{estado.mensagem}</Aviso>}
       <p className="text-sm text-suave">
-        Todos os campos são obrigatórios: são eles que o Shelper usa para calcular as métricas e acompanhar o contrato. Quem cria o
-        projeto é o Product Owner (gestor).
+        Todos os campos são obrigatórios: são eles que o Shelper usa para calcular as métricas e acompanhar o contrato. Quem cria o projeto
+        é o Product Owner (gestor).
       </p>
       <CamposCadastro valores={{ duracao: String(DURACAO_SPRINT_PADRAO), ...estado.valores }} erros={estado.erros} autoFocus />
       <fieldset className="flex flex-col gap-2 border-t border-linha pt-4">

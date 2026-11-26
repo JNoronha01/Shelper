@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { exigirUsuario } from "@/lib/auth/usuario";
-import { listarProjetos, type ResumoProjeto } from "@/lib/board/dados";
+import { carregarTours, listarProjetos, type ResumoProjeto } from "@/lib/board/dados";
+import { Tour } from "@/components/tour";
+import { TOUR_PAINEL } from "@/lib/tours";
 import { COLUNAS } from "@/lib/colunas";
 import { SIGLA_DA_FUNCAO } from "@/lib/board/papeis";
 import { NomeDoProjeto, TransicaoPagina } from "@/components/transicao-pagina";
@@ -31,12 +33,12 @@ function CartaoProjeto({ p }: { p: ResumoProjeto }) {
             <span className="truncate font-semibold transition-colors group-hover:text-laranja-claro">{p.nome}</span>
           </NomeDoProjeto>
           <span className="text-xs text-suave">
-            {p.sprintAtiva ? `Sprint ${p.sprintAtiva.numero} até ${DIA.format(new Date(`${p.sprintAtiva.fim}T00:00:00Z`))}` : "Sem Sprint ativa"}
+            {p.sprintAtiva
+              ? `Sprint ${p.sprintAtiva.numero} até ${DIA.format(new Date(`${p.sprintAtiva.fim}T00:00:00Z`))}`
+              : "Sem Sprint ativa"}
           </span>
         </div>
-        <span className="shrink-0 rounded-full border border-linha px-2 py-0.5 text-xs text-suave">
-          {SIGLA_DA_FUNCAO[p.funcao]}
-        </span>
+        <span className="shrink-0 rounded-full border border-linha px-2 py-0.5 text-xs text-suave">{SIGLA_DA_FUNCAO[p.funcao]}</span>
       </div>
 
       {/* Quantos cartões há em cada coluna, na ordem do fluxo. */}
@@ -47,9 +49,7 @@ function CartaoProjeto({ p }: { p: ResumoProjeto }) {
               n > 0 ? <span key={COLUNAS[i]} className={TOM[i]} style={{ flexGrow: n }} title={`${COLUNAS[i]}: ${n}`} /> : null,
             )}
         </div>
-        <p className="sr-only">
-          {COLUNAS.map((c, i) => `${c}: ${p.porColuna[i]}`).join(", ")}
-        </p>
+        <p className="sr-only">{COLUNAS.map((c, i) => `${c}: ${p.porColuna[i]}`).join(", ")}</p>
       </div>
 
       <dl className="mt-auto grid grid-cols-3 gap-2 text-sm">
@@ -82,19 +82,17 @@ async function ListaDeProjetos() {
 
   if (projetos.length === 0) {
     return (
-      <div className="flex flex-col items-start gap-4 rounded-2xl border border-dashed border-linha-forte p-8">
+      <div data-tour="projetos" className="flex flex-col items-start gap-4 rounded-2xl border border-dashed border-linha-forte p-8">
         <div className="flex flex-col gap-1">
           <p className="font-semibold">Olá, {usuario.nome.split(" ")[0]}. Comece criando um projeto em “Novo projeto”.</p>
-          <p className="text-sm text-suave">
-            Ele já vem com as 5 colunas do fluxo. Depois é só convidar o time pelo link na aba Time.
-          </p>
+          <p className="text-sm text-suave">Ele já vem com as 5 colunas do fluxo. Depois é só convidar o time pelo link na aba Time.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <ul data-tour="projetos" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {projetos.map((p) => (
         <li key={p.id}>
           <CartaoProjeto p={p} />
@@ -102,6 +100,13 @@ async function ListaDeProjetos() {
       ))}
     </ul>
   );
+}
+
+// Tour de primeiro acesso do painel: só aparece se a pessoa ainda não viu (ou pediu para refazer).
+async function TourDoPainel() {
+  const usuario = await exigirUsuario();
+  const tours = await carregarTours(usuario.id);
+  return tours.painel ? <Tour qual="painel" passos={TOUR_PAINEL} /> : null;
 }
 
 // Esqueleto no formato dos cartões enquanto a lista chega.
@@ -136,6 +141,9 @@ export default function PaginaPainel() {
           </div>
           <NovoProjeto destaque />
         </div>
+        <Suspense>
+          <TourDoPainel />
+        </Suspense>
         <Suspense fallback={<CarregandoProjetos />}>
           <ListaDeProjetos />
         </Suspense>
