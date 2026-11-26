@@ -40,7 +40,7 @@ export default function LayoutPainel({ children }: LayoutProps<"/painel">) {
         {/* viewTransitionName "topo": o cabeçalho fica parado enquanto as páginas deslizam. */}
         <header
           style={{ viewTransitionName: "topo" }}
-          className="sticky top-0 z-20 h-14 shrink-0 border-b border-linha bg-fundo/85 backdrop-blur-md"
+          className="sticky top-0 z-20 h-14 shrink-0 print:hidden border-b border-linha bg-fundo/85 backdrop-blur-md"
         >
           <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-4 px-4">
             <Logo href="/painel" tipos={["voltar"]} />

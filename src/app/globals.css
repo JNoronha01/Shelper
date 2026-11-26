@@ -367,6 +367,36 @@ button:not(.bg-laranja)[data-feito]::after {
   animation: 260ms var(--ease-suave) both pousar;
 }
 
+/* ------------------------------------------------------------------ Impressão (relatório da Sprint) */
+
+@page {
+  size: A4;
+  margin: 12mm;
+  background: #fff;
+}
+@media print {
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .nao-imprimir {
+    display: none !important;
+  }
+  .folha {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    box-shadow: none !important;
+  }
+  .evitar-quebra,
+  tr {
+    break-inside: avoid;
+  }
+}
+
 /* Quem pede menos movimento no sistema não vê as animações. */
 @media (prefers-reduced-motion: reduce) {
   *,
