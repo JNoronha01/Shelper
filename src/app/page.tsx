@@ -25,6 +25,10 @@ const PERGUNTAS = [
     "Até 10, como um time Scrum. Cada pessoa tem um papel: Product Owner, Scrum Master ou Desenvolvedor, e cada papel vê e pode fazer coisas diferentes.",
   ],
   [
+    "Como convido o meu time?",
+    "O Product Owner abre a aba Time do projeto e gera um link de convite. Quem abrir o link e entrar na conta já cai no projeto, como Desenvolvedor; o PO pode mudar o papel depois. O link tem prazo de validade e pode ser cancelado.",
+  ],
+  [
     "Como as métricas são calculadas?",
     "Cada vez que um cartão muda de coluna, o Shelper grava um evento com a hora do servidor. Esse histórico não pode ser editado nem apagado, e é dele que saem Lead Time, Cycle Time, Throughput, WIP, Velocity e Burndown.",
   ],

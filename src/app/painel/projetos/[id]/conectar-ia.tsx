@@ -57,7 +57,7 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
   };
 
   return (
-    <section aria-labelledby="titulo-ia" className="flex flex-col gap-4 rounded-2xl border border-linha bg-painel p-5">
+    <section aria-labelledby="titulo-ia" className="flex min-w-0 flex-col gap-4 rounded-2xl border border-linha bg-painel p-5">
       <div>
         <h2 id="titulo-ia" className="font-semibold">
           Conectar com IA
@@ -72,7 +72,7 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
       </div>
 
       {nova ? (
-        <div className="surgir flex flex-col gap-3 rounded-xl border border-laranja/40 bg-laranja/[0.04] p-4">
+        <div className="surgir flex min-w-0 flex-col gap-3 rounded-xl border border-laranja/40 bg-laranja/[0.04] p-4">
           <p className="text-sm font-medium">Copie a chave agora: ela não aparece de novo.</p>
           <div className="flex flex-wrap items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded-lg bg-fundo px-3 py-2 text-xs">{nova}</code>
@@ -80,10 +80,10 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
               Copiar chave
             </button>
           </div>
-          <dl className="grid gap-3 text-sm">
+          <dl className="grid gap-3 text-sm [&>div]:min-w-0">
             <div>
               <dt className="text-suave">Claude Code (terminal)</dt>
-              <dd className="flex items-center gap-2">
+              <dd className="flex min-w-0 items-center gap-2">
                 <code className="min-w-0 flex-1 truncate rounded-lg bg-fundo px-3 py-2 text-xs">
                   {`claude mcp add --transport http shelper ${origem}/api/mcp --header "Authorization: Bearer ${nova}"`}
                 </code>
@@ -103,14 +103,14 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
                 claude.ai ou Claude Desktop: Configurações → Conectores → Adicionar conector personalizado. Autenticação: Sem login. Em
                 Cabeçalhos de requisição, adicione os dois valores abaixo.
               </dt>
-              <dd className="flex flex-col gap-2">
+              <dd className="flex min-w-0 flex-col gap-2">
                 {[
                   ["Endereço", `${origem}/api/mcp`],
                   ["Nome do cabeçalho", "Authorization"],
                   ["Valor do cabeçalho", `Bearer ${nova}`],
                 ].map(([rotulo, valor]) => (
-                  <div key={rotulo} className="flex items-center gap-2">
-                    <span className="w-36 shrink-0 text-xs text-suave">{rotulo}</span>
+                  <div key={rotulo} className="flex min-w-0 items-center gap-2">
+                    <span className="w-32 shrink-0 text-xs text-suave">{rotulo}</span>
                     <code className="min-w-0 flex-1 truncate rounded-lg bg-fundo px-3 py-2 text-xs">{valor}</code>
                     <button type="button" className={BOTAO_MINI} onClick={() => copiar(valor, rotulo)}>
                       Copiar

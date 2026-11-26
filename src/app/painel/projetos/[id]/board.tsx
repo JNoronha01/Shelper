@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState, ViewTransition, type DragEvent } from "react";
+import { startTransition, useEffect, useRef, useState, ViewTransition, type DragEvent, type ReactNode } from "react";
 import { useAvisar } from "@/components/avisos";
 import { Avatar } from "@/components/avatar";
 import { BOTAO_MINI, BOTAO_PRINCIPAL, BOTAO_SECUNDARIO } from "@/components/botoes";
@@ -42,9 +42,12 @@ export function Board({
   time,
   agora,
   meuId,
+  extras,
 }: {
   projetoId: string;
   meuId: string;
+  // Pílulas da Sprint e do cadastro, montadas no servidor, que vão na mesma linha do Novo cartão.
+  extras?: ReactNode;
   limites: LimitesWip;
   cartoes: Cartao[];
   votacoes: Votacao[];
@@ -133,8 +136,8 @@ export function Board({
 
   return (
     <section aria-label="Board" className="flex flex-col gap-3 md:min-h-0 md:flex-1">
-      {/* Uma linha só: botão, aviso de atenção e dica. Sobra altura para as colunas. */}
-      <div className="flex shrink-0 flex-wrap items-start gap-3">
+      {/* Uma linha só: botão, Sprint, cadastro, aviso de atenção e dica. Sobra altura para as colunas. */}
+      <div className="flex shrink-0 flex-wrap items-start gap-3 md:flex-nowrap">
         {podeCriar && (
           <button type="button" onClick={() => setCriarEm("Backlog")} className={`${BOTAO_PRINCIPAL} shrink-0`}>
             <span aria-hidden="true" className="text-base leading-none">
@@ -143,8 +146,9 @@ export function Board({
             Novo cartão
           </button>
         )}
+        {extras}
         {pode(funcao, "verMetricasTime") && <PainelAtencao cartoes={visiveis} time={time} agora={agora} onAbrir={setDetalheId} />}
-        <p className={`ml-auto self-center text-sm text-suave ${temAlerta ? "hidden 2xl:block" : ""}`}>
+        <p className={`ml-auto self-center text-sm text-suave ${extras ? "hidden" : temAlerta ? "hidden 2xl:block" : ""}`}>
           {movendo ? "Gravando…" : "Arraste os cartões entre as colunas. Clique no título para abrir o detalhe."}
         </p>
       </div>
@@ -384,7 +388,7 @@ function CartaoNoBoard({
         onArrastar(cartao.id);
       }}
       onDragEnd={() => onArrastar(null)}
-      className={`group flex cursor-grab flex-col gap-2.5 rounded-cartao border bg-cartao p-3 transition duration-150 ease-suave active:cursor-grabbing ${
+      className={`group flex cursor-grab flex-col gap-2.5 rounded-cartao border bg-cartao p-3 transition baixa:gap-2 baixa:p-2.5 duration-150 ease-suave active:cursor-grabbing ${
         atrasado || cartao.bloqueado ? "alerta border-perigo/70" : concluido ? "border-linha/60 bg-cartao/60" : "border-linha"
       } ${
         arrastado
@@ -401,15 +405,34 @@ function CartaoNoBoard({
             concluido ? "text-suave line-through decoration-bom/50" : ""
           }`}
           aria-label={`Abrir o detalhe de "${cartao.titulo}"`}
+          title={cartao.titulo}
         >
-          {cartao.titulo}
+          {/* Em tela baixa (notebook) o título ocupa no máximo 2 linhas; o inteiro fica no detalhe. */}
+          <span className="md:baixa:line-clamp-2">{cartao.titulo}</span>
         </button>
-        <span
-          className="shrink-0 rounded-md bg-elevado px-1.5 py-0.5 text-xs font-semibold tabular-nums text-texto"
-          title={`${cartao.pontos} pontos`}
-        >
-          {cartao.pontos}
-          <span className="sr-only"> pontos</span>
+        {/* Responsável ao lado dos pontos: a linha de baixo fica só com resumo, setas e horas. */}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {responsavel ? (
+            <span className="flex items-center">
+              <Avatar nome={responsavel.nome} foto={responsavel.foto} tamanho="p" titulo={`Responsável: ${responsavel.nome}`} />
+              <span className="sr-only">Responsável: {responsavel.nome}</span>
+            </span>
+          ) : (
+            <span
+              className="grid size-6 place-items-center rounded-full border border-dashed border-linha-forte text-[10px]"
+              title="Sem responsável"
+            >
+              <span aria-hidden="true">?</span>
+              <span className="sr-only">Sem responsável</span>
+            </span>
+          )}
+          <span
+            className="shrink-0 rounded-md bg-elevado px-1.5 py-0.5 text-xs font-semibold tabular-nums text-texto"
+            title={`${cartao.pontos} pontos`}
+          >
+            {cartao.pontos}
+            <span className="sr-only"> pontos</span>
+          </span>
         </span>
       </div>
 
@@ -424,50 +447,51 @@ function CartaoNoBoard({
         </p>
       )}
 
-      {(cartao.descricao || total > 0 || emVotacao) && (
-        <ul className="flex flex-wrap gap-1.5 text-[11px] font-medium text-suave" aria-label="Resumo do cartão">
-          {cartao.descricao && (
-            <li className="rounded-md bg-elevado/70 px-1.5 py-0.5" title="Tem descrição">
-              <svg viewBox="0 0 16 16" aria-hidden="true" className="mr-1 inline size-3 align-[-1px]">
-                <path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-              Descrição
-            </li>
-          )}
-          {total > 0 && (
-            <li
-              className={`rounded-md px-1.5 py-0.5 tabular-nums ${feitos === total ? "bg-bom/15 text-bom" : "bg-elevado/70"}`}
-              title="Itens do checklist feitos"
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" className="mr-1 inline size-3 align-[-1px]">
-                <rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                <path
-                  d="M5 8.2l2 2 4-4.4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {feitos}/{total}
-            </li>
-          )}
-          {emVotacao && <li className="rounded-md bg-laranja/10 px-1.5 py-0.5 text-laranja-claro">Em votação</li>}
-        </ul>
-      )}
-
+      {/* Uma linha só: resumo (descrição, checklist, votação), setas e horas/responsável. */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <div className="flex flex-wrap items-center gap-1.5 transition-opacity duration-150 md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+        {(cartao.descricao || total > 0 || emVotacao) && (
+          <ul className="flex flex-wrap gap-1.5 text-[11px] font-medium text-suave" aria-label="Resumo do cartão">
+            {cartao.descricao && (
+              <li className="rounded-md bg-elevado/70 px-1.5 py-0.5" title="Tem descrição">
+                <svg viewBox="0 0 16 16" aria-hidden="true" className="mr-1 inline md:mr-0 size-3 align-[-1px]">
+                  <path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+                <span className="md:sr-only">Descrição</span>
+              </li>
+            )}
+            {total > 0 && (
+              <li
+                className={`rounded-md px-1.5 py-0.5 tabular-nums ${feitos === total ? "bg-bom/15 text-bom" : "bg-elevado/70"}`}
+                title="Itens do checklist feitos"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" className="mr-1 inline size-3 align-[-1px]">
+                  <rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M5 8.2l2 2 4-4.4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {feitos}/{total}
+              </li>
+            )}
+            {emVotacao && <li className="rounded-md bg-laranja/10 px-1.5 py-0.5 text-laranja-claro">Em votação</li>}
+          </ul>
+        )}
+        <div className="flex flex-wrap items-center gap-1 transition-opacity duration-150 md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
           {anterior && (
             <button
               type="button"
               disabled={ocupado}
               onClick={() => onMover(cartao, anterior)}
-              className={BOTAO_MINI}
+              className={`${BOTAO_MINI} md:!px-1.5`}
               aria-label={`Voltar "${cartao.titulo}" para ${anterior}`}
             >
-              <span aria-hidden="true">←</span> Voltar
+              <span aria-hidden="true">←</span>
+              <span className="md:hidden"> Voltar</span>
             </button>
           )}
           {proxima && (
@@ -475,10 +499,11 @@ function CartaoNoBoard({
               type="button"
               disabled={ocupado}
               onClick={() => onMover(cartao, proxima)}
-              className={BOTAO_MINI}
+              className={`${BOTAO_MINI} md:!px-1.5`}
               aria-label={`Avançar "${cartao.titulo}" para ${proxima}`}
             >
-              Avançar <span aria-hidden="true">→</span>
+              <span className="md:hidden">Avançar </span>
+              <span aria-hidden="true">→</span>
             </button>
           )}
         </div>
@@ -488,21 +513,11 @@ function CartaoNoBoard({
               {formatarDuracao(cartao.horasEstimadas)}
             </span>
           ) : (
-            !concluido && <span title="Sem horas estimadas">sem estimativa</span>
-          )}
-          {responsavel ? (
-            <span className="flex items-center">
-              <Avatar nome={responsavel.nome} foto={responsavel.foto} tamanho="p" titulo={`Responsável: ${responsavel.nome}`} />
-              <span className="sr-only">Responsável: {responsavel.nome}</span>
-            </span>
-          ) : (
-            <span
-              className="grid size-6 place-items-center rounded-full border border-dashed border-linha-forte text-[10px]"
-              title="Sem responsável"
-            >
-              <span aria-hidden="true">?</span>
-              <span className="sr-only">Sem responsável</span>
-            </span>
+            !concluido && (
+              <span title="Sem horas estimadas" className="md:sr-only">
+                sem estimativa
+              </span>
+            )
           )}
         </span>
       </div>

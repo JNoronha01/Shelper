@@ -42,7 +42,7 @@ export function AbaProjeto({
         <HorasDoContrato contratadas={projeto.horasContratadas} horas={horas} />
         <ConfiguracaoWip projetoId={projeto.id} andamento={projeto.wipAndamento} revisao={projeto.wipRevisao} />
       </div>
-      <div className="flex flex-col gap-6 lg:col-span-2">
+      <div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
         <ConectarIa projetoId={projeto.id} chaves={chaves} />
         <ExportarProjeto projetoId={projeto.id} />
         {podeEditar && <ImportarBoard projetoId={projeto.id} />}

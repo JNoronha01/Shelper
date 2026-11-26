@@ -32,12 +32,15 @@ export function ProvedorAbas({
   atual,
   visiveis,
   caminho = `/painel/projetos/${projetoId}`,
+  lado,
   children,
 }: {
   projetoId: string;
   atual: IdAba;
   visiveis: IdAba[];
   caminho?: string;
+  // Conteúdo que fica na mesma linha das abas, à direita (os números do projeto), no md+.
+  lado?: ReactNode;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -76,7 +79,14 @@ export function ProvedorAbas({
 
   return (
     <Ctx.Provider value={{ atual, aba, pendente }}>
-      <Abas caminho={caminho} abas={abas} aba={aba} pendente={pendente} onIr={ir} />
+      {lado ? (
+        <div className="flex shrink-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <Abas caminho={caminho} abas={abas} aba={aba} pendente={pendente} onIr={ir} />
+          {lado}
+        </div>
+      ) : (
+        <Abas caminho={caminho} abas={abas} aba={aba} pendente={pendente} onIr={ir} />
+      )}
       {children}
     </Ctx.Provider>
   );
@@ -110,7 +120,7 @@ function Abas({
   }, [aba]);
 
   return (
-    <nav aria-label="Seções do projeto" className="sem-barra relative -mx-4 shrink-0 overflow-x-auto px-4">
+    <nav aria-label="Seções do projeto" className="sem-barra relative -mx-4 min-w-0 shrink-0 overflow-x-auto px-4 md:mx-0 md:px-0">
       <div ref={lista} className="relative flex w-max gap-1 rounded-xl border border-linha bg-painel p-1">
         {marcador && (
           <span
