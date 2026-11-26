@@ -99,14 +99,25 @@ export function ConectarIa({ projetoId, chaves }: { projetoId: string; chaves: C
               </dd>
             </div>
             <div>
-              <dt className="text-suave">claude.ai ou Claude Desktop (Configurações → Conectores → Adicionar conector personalizado)</dt>
-              <dd className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-lg bg-fundo px-3 py-2 text-xs">{`${origem}/api/mcp/${nova}`}</code>
-                <button type="button" className={BOTAO_MINI} onClick={() => copiar(`${origem}/api/mcp/${nova}`, "Endereço")}>
-                  Copiar
-                </button>
+              <dt className="text-suave">
+                claude.ai ou Claude Desktop: Configurações → Conectores → Adicionar conector personalizado. Autenticação: Sem login. Em
+                Cabeçalhos de requisição, adicione os dois valores abaixo.
+              </dt>
+              <dd className="flex flex-col gap-2">
+                {[
+                  ["Endereço", `${origem}/api/mcp`],
+                  ["Nome do cabeçalho", "Authorization"],
+                  ["Valor do cabeçalho", `Bearer ${nova}`],
+                ].map(([rotulo, valor]) => (
+                  <div key={rotulo} className="flex items-center gap-2">
+                    <span className="w-36 shrink-0 text-xs text-suave">{rotulo}</span>
+                    <code className="min-w-0 flex-1 truncate rounded-lg bg-fundo px-3 py-2 text-xs">{valor}</code>
+                    <button type="button" className={BOTAO_MINI} onClick={() => copiar(valor, rotulo)}>
+                      Copiar
+                    </button>
+                  </div>
+                ))}
               </dd>
-              <p className="mt-1 text-xs text-suave">Esse endereço já leva a chave: trate como senha e não compartilhe.</p>
             </div>
           </dl>
           <button type="button" className={`${BOTAO_TEXTO} self-end`} onClick={() => setNova(null)}>

@@ -112,6 +112,16 @@ const post = (corpo: unknown, cabecalhos: Record<string, string> = { authorizati
     body: JSON.stringify(corpo),
   });
 
+describe("chave no cabeçalho", () => {
+  it("aceita com e sem Bearer, e X-Api-Key", async () => {
+    const { chaveDoCabecalho } = await import("./servico");
+    expect(chaveDoCabecalho(new Headers({ authorization: `Bearer ${CHAVE}` }))).toBe(CHAVE);
+    expect(chaveDoCabecalho(new Headers({ authorization: ` ${CHAVE} ` }))).toBe(CHAVE);
+    expect(chaveDoCabecalho(new Headers({ "x-api-key": CHAVE }))).toBe(CHAVE);
+    expect(chaveDoCabecalho(new Headers())).toBeNull();
+  });
+});
+
 describe("servidor MCP", () => {
   it("initialize, tools/list e notificação", async () => {
     const ini = await (
